@@ -7,7 +7,8 @@ Permite visualização em tempo real de:
 - Propostas do Analista e parecer do Revisor Independente
 - Botão "Sugestão + 1 Clique" para aprovação humana e execução pelo Order Gate
 - Configuração dinâmica de chaves de IA (Gemini, Claude, OpenAI)
-- Notificações de trades em tempo real no Telegram com alertas instantâneos
+- Notificações de trades em tempo real no Telegram
+- Conexão Cloud com Corretora BTG Pactual (B3)
 - Histórico auditável de ordens
 """
 
@@ -24,6 +25,7 @@ from pydantic import BaseModel
 from src.collectors.market_data import ColetorMercado
 from src.execution.portfolio_simulator import CarteiraSimulada, TipoOperacao, EstadoOrdem
 from src.execution.order_gate import OrderGate, PropostaTrade
+from src.execution.btg_connector import BTGConnector
 from src.agents.contracts import ParecerRevisao, ViesDirecional
 from src.agents.llm_client import LLMClient
 from src.agents.coordinator import CoordenadorCiclo
@@ -32,10 +34,11 @@ from src.finance.math_engine import calcular_drawdown_maximo
 
 app = FastAPI(title="Mesa Proprietária Multiagente - Dashboard")
 
-# Instâncias persistentes da carteira, OrderGate, LLM e Telegram
+# Instâncias persistentes da carteira, OrderGate, LLM, Telegram e BTG
 CONFIG_PATH = os.getenv("CONFIG_PATH", "config/risk_limits.json")
 llm_client = LLMClient()
 telegram = TelegramNotifier()
+btg = BTGConnector()
 carteira = CarteiraSimulada(saldo_inicial_brl=100.0)
 gate = OrderGate(caminho_config=CONFIG_PATH, carteira=carteira)
 coletor = ColetorMercado()
@@ -62,6 +65,13 @@ class ConfigurarLLMRequest(BaseModel):
 class ConfigurarTelegramRequest(BaseModel):
     bot_token: str
     chat_id: str
+
+
+class ConfigurarBTGRequest(BaseModel):
+    client_id: str
+    client_secret: str
+    account_id: str
+    ambiente: str = "sandbox"  # "sandbox" ou "production"
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -96,6 +106,7 @@ async def get_status():
 
     info_llm = llm_client.obter_status()
     info_tg = telegram.obter_status()
+    info_btg = btg.obter_status()
 
     return {
         "capital_inicial": carteira.capital_inicial,
@@ -118,6 +129,10 @@ async def get_status():
         "telegram_ativo": info_tg.ativo,
         "telegram_bot": info_tg.nome_bot,
         "telegram_detalhes": info_tg.detalhes,
+        "btg_conectado": info_btg.conectado,
+        "btg_modo": info_btg.modo,
+        "btg_conta": info_btg.conta,
+        "btg_detalhes": info_btg.detalhes,
         "timestamp_atual": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -181,6 +196,32 @@ async def test_telegram():
     return {"status": "Mensagem enviada com sucesso ao seu celular!"}
 
 
+@app.get("/api/btg/status")
+async def get_btg_status():
+    status = btg.obter_status()
+    return {
+        "conectado": status.conectado,
+        "modo": status.modo,
+        "conta": status.conta,
+        "saldo_disponivel_brl": status.saldo_disponivel_brl,
+        "detalhes": status.detalhes,
+    }
+
+
+@app.post("/api/btg/configure")
+async def configure_btg(req: ConfigurarBTGRequest):
+    if not req.client_id or not req.client_secret or not req.account_id:
+        raise HTTPException(status_code=400, detail="Client ID, Client Secret e Conta são obrigatórios.")
+    btg.reconfigurar(req.client_id, req.client_secret, req.account_id, req.ambiente)
+    status = btg.obter_status()
+    return {
+        "status": "Configuração da API BTG Pactual atualizada com sucesso!",
+        "modo": status.modo,
+        "conta": status.conta,
+        "detalhes": status.detalhes,
+    }
+
+
 @app.get("/api/market")
 async def get_market():
     caminho_snapshot = Path("data/snapshots/ultimo_mercado.json")
@@ -201,11 +242,9 @@ async def run_cycle():
     snapshot = coletor.coletar_cesta_completa()
     coletor.salvar_snapshot()
 
-    # Atualiza cotações das posições existentes na carteira
     for ticker, metrica in snapshot.items():
         carteira.atualizar_cotacao(ticker, metrica.preco_atual)
 
-    # Executa análise através do coordenador (com IA real se configurada)
     snapshot_dict = {k: metrica.__dict__ for k, metrica in snapshot.items()}
     diagnostico = coordenador.analisar_mercado(snapshot_dict)
 
@@ -215,7 +254,6 @@ async def run_cycle():
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-    # Gera propostas submetidas ao Revisor Independente
     propostas_pendentes.clear()
     for prop in diagnostico.propostas:
         metricas_ativo = snapshot_dict.get(prop.ativo, {})
@@ -241,7 +279,6 @@ async def run_cycle():
         }
         propostas_pendentes[prop_id] = dados_proposta
 
-        # Notifica o operador no Telegram imediatamente se aprovada pelo Revisor
         if status_inicial == "PENDENTE_APROVACAO_HUMANA" and telegram.obter_status().ativo:
             telegram.notificar_proposta_trade(dados_proposta)
 
@@ -282,9 +319,21 @@ async def approve_proposal(proposta_id: str):
         prop["motivo_gate"] = decisao.motivo
         return {"sucesso": False, "motivo": decisao.motivo}
 
+    # Encaminha a ordem aprovada ao conector BTG Pactual (B3)
+    resp_btg = btg.enviar_ordem_b3(
+        ativo=prop["ativo"],
+        tipo=prop["tipo"],
+        quantidade=decisao.dimensionamento.tamanho_lote,
+        preco=prop["preco_atual"],
+        stop_loss=prop["preco_stop_loss"],
+        take_profit=prop["preco_take_profit"],
+    )
+
     prop["status"] = "EXECUTADA"
     prop["lote_executado"] = decisao.dimensionamento.tamanho_lote
     prop["risco_brl"] = decisao.dimensionamento.risco_financeiro_brl
+    prop["ordem_id_btg"] = resp_btg.ordem_id_btg
+    prop["status_btg"] = resp_btg.status
 
     # Envia notificação de execução confirmada para o celular via Telegram
     if telegram.obter_status().ativo:
@@ -303,6 +352,9 @@ async def approve_proposal(proposta_id: str):
         "lote": decisao.dimensionamento.tamanho_lote,
         "risco_brl": decisao.dimensionamento.risco_financeiro_brl,
         "saldo_restante": round(carteira.saldo_caixa, 2),
+        "ordem_id_btg": resp_btg.ordem_id_btg,
+        "status_corretora": resp_btg.status,
+        "mensagem_corretora": resp_btg.mensagem,
     }
 
 
