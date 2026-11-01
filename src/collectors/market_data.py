@@ -37,15 +37,29 @@ class MetricasAtivo:
     tempo_evento: str
     tempo_publicacao: str
     tempo_coleta: str
+    nome: str = ""
+    categoria: str = "B3"
+    variacao_nominal: float = 0.0
+    sparkline: Optional[List[float]] = None
+
+
+METADADOS_ATIVOS: Dict[str, Dict[str, str]] = {
+    "BOVA11.SA": {"nome": "iShares Ibovespa", "categoria": "B3"},
+    "IVVB11.SA": {"nome": "iShares S&P 500", "categoria": "Global"},
+    "GOLD11.SA": {"nome": "Trend Ouro B3", "categoria": "Hedge"},
+    "USDBRL=X": {"nome": "Dólar Comercial", "categoria": "Moeda"},
+    "^VIX": {"nome": "CBOE Volatilidade", "categoria": "Macro"},
+}
 
 
 class ColetorMercado:
     def __init__(self, tickers: Optional[List[str]] = None):
         self.tickers = tickers or [
             "BOVA11.SA",
-            "GOLD11.SA",
             "IVVB11.SA",
+            "GOLD11.SA",
             "USDBRL=X",
+            "^VIX",
         ]
 
     def coletar_metricas_ativo(self, ticker: str, periodo: str = "3mo") -> Optional[MetricasAtivo]:
@@ -70,6 +84,7 @@ class ColetorMercado:
             preco_atual = float(closes[-1])
             preco_anterior = float(closes[-2])
             variacao = (preco_atual / preco_anterior) - 1.0
+            variacao_nominal = preco_atual - preco_anterior
 
             # Cálculos determinísticos
             zscore = calcular_zscore(closes[-20:], preco_atual)
@@ -79,6 +94,10 @@ class ColetorMercado:
             vol_20p = float(np.std(retornos, ddof=1))
 
             data_evento = str(df.index[-1].date())
+
+            # Sparkline suave dos últimos 15 fechamentos
+            sparkline = [round(float(p), 2) for p in closes[-15:]]
+            meta = METADADOS_ATIVOS.get(ticker, {"nome": ticker, "categoria": "B3"})
 
             return MetricasAtivo(
                 ticker=ticker,
@@ -92,6 +111,10 @@ class ColetorMercado:
                 tempo_evento=f"{data_evento}T17:00:00Z",
                 tempo_publicacao=f"{data_evento}T18:00:00Z",
                 tempo_coleta=agora_utc,
+                nome=meta["nome"],
+                categoria=meta["categoria"],
+                variacao_nominal=round(variacao_nominal, 4),
+                sparkline=sparkline,
             )
         except Exception as e:
             print(f"[Aviso] Falha ao coletar dados para {ticker}: {e}")

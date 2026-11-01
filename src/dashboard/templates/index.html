@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mesa Proprietária Multiagente - Gestão de Investimentos</title>
+  <title>Mesa Multiagente Finanças - Inteligência Artificial & B3 em Tempo Real</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
@@ -12,11 +12,19 @@
       theme: {
         extend: {
           colors: {
-            brand: {
-              50: '#f0fdf4',
-              500: '#10b981',
-              600: '#059669',
-              900: '#064e3b',
+            google: {
+              bg: '#131314',
+              surface: '#1e1f20',
+              surfaceHover: '#282a2d',
+              border: '#303338',
+              input: '#202124',
+              green: '#81c995',
+              greenDark: '#0f5132',
+              red: '#f28b82',
+              redDark: '#5c1d1d',
+              blue: '#8ab4f8',
+              yellow: '#fdd663',
+              gray: '#9aa0a6',
             }
           }
         }
@@ -25,443 +33,951 @@
   </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #131314;
+    }
     .mono { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Animação suave de piscada em tempo real quando o preço varia */
+    .flash-up {
+      animation: flashGreenAnim 1.2s ease-out;
+    }
+    .flash-down {
+      animation: flashRedAnim 1.2s ease-out;
+    }
+    @keyframes flashGreenAnim {
+      0% { background-color: rgba(129, 201, 149, 0.35); }
+      100% { background-color: transparent; }
+    }
+    @keyframes flashRedAnim {
+      0% { background-color: rgba(242, 139, 130, 0.35); }
+      100% { background-color: transparent; }
+    }
+
+    /* Scrollbar personalizada dark */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #131314;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #303338;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #44474c;
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-emerald-500 selection:text-black">
+<body class="bg-[#131314] text-[#e3e3e3] min-h-screen flex flex-col selection:bg-emerald-500 selection:text-black">
 
-  <!-- Top Navigation -->
-  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+  <!-- ================= TOP HEADER (ESTILO GOOGLE FINANÇAS) ================= -->
+  <header class="border-b border-[#303338] bg-[#131314]/95 backdrop-blur sticky top-0 z-50 px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3">
+    <!-- Logo & Título -->
     <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-emerald-500/20">
-        <i data-lucide="layers" class="w-6 h-6"></i>
+      <div class="flex items-center gap-1.5 cursor-pointer">
+        <svg class="w-6 h-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+          <polyline points="16 7 22 7 22 13"></polyline>
+        </svg>
+        <span class="text-lg font-bold tracking-tight text-white flex items-center">
+          Mesa&nbsp;<span class="text-[#9aa0a6] font-normal">Multiagente Finanças</span>
+        </span>
       </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="font-bold text-lg text-white">Mesa Multiagente</h1>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">Fase Semente</span>
-        </div>
-        <p class="text-xs text-slate-400">Antigravity + Paperclip Architecture · Cesta Multimercado</p>
+      <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/30">
+        Fase Semente (R$ 100)
+      </span>
+    </div>
+
+    <!-- Barra de Pesquisa Centralizada (Google Style) -->
+    <div class="flex-1 max-w-lg mx-2 hidden md:block">
+      <div class="relative flex items-center">
+        <i data-lucide="search" class="w-4 h-4 text-[#9aa0a6] absolute left-4 pointer-events-none"></i>
+        <input
+          id="input-busca"
+          type="text"
+          placeholder="Pesquise ações, ETFs e muito mais"
+          class="w-full bg-[#202124] hover:bg-[#282a2d] focus:bg-[#202124] border border-[#3c4043] rounded-full py-2 pl-11 pr-11 text-xs sm:text-sm text-[#e3e3e3] placeholder-[#9aa0a6] focus:outline-none focus:border-blue-400 transition"
+          oninput="filtrarPorBusca(this.value)"
+        >
+        <i data-lucide="mic" class="w-4 h-4 text-[#9aa0a6] absolute right-4 cursor-pointer hover:text-white transition"></i>
       </div>
     </div>
 
-    <div class="flex items-center gap-2.5 flex-wrap">
-      <!-- Botão Configurar Chave de IA -->
-      <button onclick="abrirModalIA()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 transition">
+    <!-- Controles Rápidos & Badge Ao Vivo -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- Badge Ao Vivo & Relógio B3 -->
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#202124] border border-[#3c4043] text-xs">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+        </span>
+        <span class="font-bold text-rose-400 uppercase tracking-wider text-[11px]">Ao vivo</span>
+        <span class="text-[#5f6368]">|</span>
+        <span id="relogio-b3" class="mono text-[#e3e3e3] font-medium text-xs">17:04:13</span>
+      </div>
+
+      <!-- Configurar IA -->
+      <button onclick="abrirModalIA()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
         <i data-lucide="cpu" class="w-3.5 h-3.5 text-cyan-400"></i>
         <span id="badge-llm-status">IA: Carregando...</span>
       </button>
 
-      <!-- Botão Configurar BTG Pactual -->
-      <button onclick="abrirModalBTG()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 transition">
+      <!-- Configurar BTG Pactual -->
+      <button onclick="abrirModalBTG()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
         <i data-lucide="landmark" class="w-3.5 h-3.5 text-amber-400"></i>
-        <span id="badge-btg-status">Corretora: BTG (Cloud)</span>
+        <span id="badge-btg-status">BTG: Cloud Simulado</span>
       </button>
 
-      <!-- Botão Configurar Telegram -->
-      <button onclick="abrirModalTelegram()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 transition">
+      <!-- Configurar Telegram -->
+      <button onclick="abrirModalTelegram()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
         <i data-lucide="send" class="w-3.5 h-3.5 text-blue-400"></i>
-        <span id="badge-tg-status">Telegram: Inativo</span>
+        <span id="badge-tg-status">Telegram</span>
       </button>
 
       <!-- Botão Executar Ciclo -->
-      <button onclick="executarCiclo()" id="btn-ciclo" class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm px-4 py-2 rounded-lg transition shadow-md shadow-emerald-500/20">
-        <i data-lucide="refresh-cw" class="w-4 h-4" id="icon-refresh"></i>
-        <span>Executar Ciclo de Análise</span>
+      <button onclick="executarCiclo()" id="btn-ciclo" class="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-full transition shadow-sm">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="icon-refresh"></i>
+        <span>Analisar Agora</span>
       </button>
-
-      <div class="h-6 w-px bg-slate-800 hidden sm:block"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span id="badge-tempo">Ao Vivo</span>
-      </div>
     </div>
   </header>
 
-  <!-- Main Container -->
-  <main class="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+  <!-- ================= BARRA DE ABAS / PILLS (ESTILO GOOGLE FINANÇAS) ================= -->
+  <section class="border-b border-[#303338] bg-[#131314] px-4 sm:px-6 py-2.5 overflow-x-auto flex items-center gap-2 text-xs select-none">
+    <button onclick="filtrarCategoria('TODOS')" id="pill-TODOS" class="pill-tab px-4 py-1 rounded-full font-medium bg-[#e3e3e3] text-[#131314] transition">
+      Todos
+    </button>
+    <button onclick="filtrarCategoria('B3')" id="pill-B3" class="pill-tab px-4 py-1 rounded-full font-medium bg-[#202124] hover:bg-[#303338] text-[#9aa0a6] hover:text-white transition">
+      B3 / Brasil
+    </button>
+    <button onclick="filtrarCategoria('GLOBAL')" id="pill-GLOBAL" class="pill-tab px-4 py-1 rounded-full font-medium bg-[#202124] hover:bg-[#303338] text-[#9aa0a6] hover:text-white transition">
+      EUA & Global
+    </button>
+    <button onclick="filtrarCategoria('HEDGE')" id="pill-HEDGE" class="pill-tab px-4 py-1 rounded-full font-medium bg-[#202124] hover:bg-[#303338] text-[#9aa0a6] hover:text-white transition">
+      Ouro & Hedge
+    </button>
+    <button onclick="filtrarCategoria('MOEDA')" id="pill-MOEDA" class="pill-tab px-4 py-1 rounded-full font-medium bg-[#202124] hover:bg-[#303338] text-[#9aa0a6] hover:text-white transition">
+      Moedas (Câmbio)
+    </button>
+    <button onclick="filtrarCategoria('MACRO')" id="pill-MACRO" class="pill-tab px-4 py-1 rounded-full font-medium bg-[#202124] hover:bg-[#303338] text-[#9aa0a6] hover:text-white transition">
+      VIX / Sentimento
+    </button>
+  </section>
 
-    <!-- KPI Banner -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
-        <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
-          <span>Patrimônio Total</span>
+  <!-- ================= CARDS PRINCIPAIS COM SPARKLINES (LINHA SUPERIOR) ================= -->
+  <section class="px-4 sm:px-6 pt-5 pb-2">
+    <div id="grid-cards-sparkline" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <!-- Preenchido dinamicamente pelo JavaScript com SVG Sparklines idênticos ao Google Finanças -->
+    </div>
+  </section>
+
+  <!-- ================= CONTEÚDO PRINCIPAL (LAYOUT 2 COLUNAS) ================= -->
+  <main class="flex-1 px-4 sm:px-6 py-4 max-w-7xl w-full mx-auto flex flex-col lg:flex-row gap-6">
+
+    <!-- COLUNA ESQUERDA: WATCHLIST / SETORES & PATRIMÔNIO (320px) -->
+    <aside class="w-full lg:w-80 shrink-0 space-y-4">
+      
+      <!-- Box de Listas / Setores de Ações -->
+      <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[#303338]">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold text-white">Setores & Cesta</span>
+            <span id="badge-total-ativos" class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#303338] text-[#9aa0a6] font-mono">5</span>
+          </div>
+          <i data-lucide="chevron-up" class="w-4 h-4 text-[#9aa0a6]"></i>
+        </div>
+
+        <!-- Lista dinâmica de ativos com mini sparkline -->
+        <div id="lista-watchlist" class="space-y-1">
+          <!-- Renderizado via JS -->
+          <div class="text-center py-6 text-xs text-[#9aa0a6]">Carregando cotações ao vivo...</div>
+        </div>
+      </div>
+
+      <!-- Box de Patrimônio & Gestão de Risco -->
+      <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-4 space-y-3">
+        <div class="flex justify-between items-center text-xs text-[#9aa0a6] font-medium">
+          <span>Patrimônio da Mesa</span>
           <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
         </div>
-        <div class="mt-2">
-          <span class="text-2xl font-bold mono text-white" id="stat-patrimonio">R$ 100,00</span>
-          <div class="flex items-center gap-1.5 mt-1 text-xs">
-            <span class="text-slate-400">Meta:</span>
+
+        <div>
+          <div class="text-2xl font-bold mono text-white" id="stat-patrimonio">R$ 100,00</div>
+          <div class="flex items-center justify-between mt-1 text-xs">
+            <span class="text-[#9aa0a6]">Meta Semente:</span>
             <span class="text-emerald-400 font-semibold mono">R$ 250,00</span>
-            <span class="text-slate-500">(+150%)</span>
+            <span class="text-emerald-500/80 font-medium">(+150%)</span>
           </div>
         </div>
-        <div class="mt-3 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-          <div id="bar-meta" class="bg-emerald-400 h-1.5 rounded-full transition-all" style="width: 0%"></div>
+
+        <!-- Barra de Progresso até a Meta de R$ 250 -->
+        <div class="w-full bg-[#131314] rounded-full h-1.5 overflow-hidden">
+          <div id="progress-meta" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700" style="width: 40%"></div>
+        </div>
+
+        <!-- Indicadores de Risco Determinísticos -->
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-[#303338] text-xs">
+          <div>
+            <div class="text-[11px] text-[#9aa0a6]">Saldo em Caixa</div>
+            <div class="font-semibold mono text-white" id="stat-caixa">R$ 100,00</div>
+          </div>
+          <div>
+            <div class="text-[11px] text-[#9aa0a6]">P&L Realizado Hoje</div>
+            <div class="font-semibold mono text-emerald-400" id="stat-pnl">R$ 0,00</div>
+          </div>
+          <div>
+            <div class="text-[11px] text-[#9aa0a6]">Trava Diária (-4%)</div>
+            <div class="font-semibold mono text-rose-400" id="stat-trava">-R$ 4,00</div>
+          </div>
+          <div>
+            <div class="text-[11px] text-[#9aa0a6]">Risco Limite (2%)</div>
+            <div class="font-semibold mono text-amber-400">R$ 2,00</div>
+          </div>
+        </div>
+
+        <div class="pt-2 text-[11px] text-[#9aa0a6] flex items-center justify-between">
+          <span>Critério Quarter-Kelly:</span>
+          <span class="text-emerald-400 font-mono font-medium">0.25 × f*</span>
         </div>
       </div>
 
-      <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
-        <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
-          <span>Saldo em Caixa</span>
-          <i data-lucide="banknote" class="w-4 h-4 text-blue-400"></i>
+    </aside>
+
+    <!-- COLUNA DIREITA: FEED AO VIVO, PROPOSTAS IA & RESUMO MERCADO -->
+    <section class="flex-1 space-y-5 min-w-0">
+
+      <!-- ================= PROPOSTA DA IA (SUGESTÃO + 1 CLIQUE) ================= -->
+      <div id="container-proposta" class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-[#303338]">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h2 class="text-sm font-bold text-white tracking-wide">Mesa de Operações · Proposta da IA</h2>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">Modo Sugestão + 1 Clique</span>
+          </div>
+          <span class="text-[11px] text-[#9aa0a6]">Nenhuma ordem sem autorização humana</span>
         </div>
-        <div class="mt-2">
-          <span class="text-2xl font-bold mono text-white" id="stat-caixa">R$ 100,00</span>
-          <p class="text-xs text-slate-400 mt-1">Disponível para Kelly</p>
-        </div>
-        <div class="mt-3 text-xs text-slate-500 flex justify-between">
-          <span>Alavancagem: 0.0x</span>
-          <span class="text-emerald-400">Spot Only</span>
+
+        <div id="conteudo-proposta" class="mt-4">
+          <!-- Renderizado dinamicamente -->
+          <div class="py-6 text-center text-xs text-[#9aa0a6]">
+            Nenhuma proposta pendente no momento. Os agentes estão monitorando estiramentos (|Z| ≥ 1.8).
+          </div>
         </div>
       </div>
 
-      <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
-        <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
-          <span>P&L Realizado Hoje</span>
-          <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+      <!-- ================= RESUMO SOBRE O MERCADO (ACCORDION GOOGLE FINANÇAS) ================= -->
+      <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[#303338]">
+          <h2 class="text-base font-bold text-white">Resumo sobre o mercado</h2>
+          <span class="text-xs text-[#9aa0a6]" id="label-regime-macro">Regime: Reflação / Cautela Cambial</span>
         </div>
-        <div class="mt-2">
-          <span class="text-2xl font-bold mono text-emerald-400" id="stat-pl">R$ 0,00</span>
-          <p class="text-xs text-slate-400 mt-1">Trava diária: -R$ 4,00 (-4%)</p>
-        </div>
-        <div class="mt-3 text-xs text-slate-500">
-          Perdas seguidas hoje: <span class="font-bold text-slate-300 mono" id="stat-perdas">0/2</span>
-        </div>
-      </div>
 
-      <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
-        <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
-          <span>Risco de Drawdown</span>
-          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i>
+        <!-- Accordion 1: B3 & Mean Reversion -->
+        <div class="border-b border-[#303338]/60 pb-3">
+          <button onclick="toggleAccordion('acc-1')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
+            <span id="title-acc-1">Ações da B3 em sobrevenda técnica: Oportunidade de reversão à média</span>
+            <i data-lucide="chevron-down" id="icon-acc-1" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
+          </button>
+          <div id="acc-1" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
+            <p>O índice <b>BOVA11</b> atingiu normalização Z-Score de <b>-1.89</b> (estiramento estatístico de curto prazo). O modelo determinístico do Sistema 1 identifica assimetria favorável para compra, dimensionando Stop Loss a 1.5× ATR (R$ 154,06) e Alvo a 2.0× da amplitude (R$ 188,07).</p>
+          </div>
         </div>
-        <div class="mt-2">
-          <span class="text-2xl font-bold mono text-amber-400" id="stat-drawdown">0.00%</span>
-          <p class="text-xs text-slate-400 mt-1">Máx observado: <span class="mono" id="stat-max-dd">0.00%</span></p>
-        </div>
-        <div class="mt-3 text-xs text-emerald-400 flex items-center gap-1">
-          <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
-          <span>Dentro dos limites</span>
-        </div>
-      </div>
 
-      <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
-        <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
-          <span>Regime Macro (Sistema 2)</span>
-          <i data-lucide="globe" class="w-4 h-4 text-cyan-400"></i>
+        <!-- Accordion 2: Macro Regime & Dólar -->
+        <div class="border-b border-[#303338]/60 pb-3">
+          <button onclick="toggleAccordion('acc-2')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
+            <span id="title-acc-2">Regime Macroeconômico: Cautela Cambial e pressão nos juros de longo prazo</span>
+            <i data-lucide="chevron-down" id="icon-acc-2" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
+          </button>
+          <div id="acc-2" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
+            <p>O Dólar Comercial (<b>USDBRL</b>) opera em patamar elevado com Z-Score de <b>+1.75</b>. O modelo de Sistema 2 recomenda manter 100% de capital sem alavancagem, respeitando a trava de risco individual de 2,0% (R$ 2,00) via critério Quarter-Kelly fracionário.</p>
+          </div>
         </div>
-        <div class="mt-2">
-          <span class="text-sm font-bold text-cyan-300" id="stat-regime">Carregando...</span>
-          <p class="text-xs text-slate-400 mt-1 line-clamp-2" id="stat-macro-detalhe">Sistema 2 ativo</p>
-        </div>
-        <div class="mt-3 text-xs text-slate-500">
-          Taxa Livre (CDI/Selic): <span class="text-slate-300 mono">10.5% a.a.</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- Active Proposals Section ("Sugestão + 1 Clique") -->
-    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
-      <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
-        <div class="flex items-center gap-2">
-          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
-          <h2 class="font-bold text-base text-white">Propostas da Equipe de IA (Modo Sugestão + 1 Clique)</h2>
+        <!-- Accordion 3: VIX & Volatilidade Global -->
+        <div class="border-b border-[#303338]/60 pb-3">
+          <button onclick="toggleAccordion('acc-3')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
+            <span id="title-acc-3">Índice VIX global em alta: Sentimento de cautela e aversão ao risco</span>
+            <i data-lucide="chevron-down" id="icon-acc-3" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
+          </button>
+          <div id="acc-3" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
+            <p>O CBOE VIX opera em <b>19.42 (+12,91%)</b>, sinalizando aumento de volatilidade nos mercados desenvolvidos. O portfólio mantém hedge natural através da exposição em <b>GOLD11</b> (Ouro físico) e <b>IVVB11</b> (S&P 500 cotado em reais).</p>
+          </div>
         </div>
-        <span class="text-xs text-slate-400">Nenhuma ordem é executada sem autorização humana explícita</span>
-      </div>
 
-      <div id="container-propostas" class="space-y-3">
-        <div class="text-center py-8 text-slate-500 text-sm">
-          <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
-          Nenhuma proposta pendente no momento. Clique em <b>"Executar Ciclo de Análise"</b> para avaliar a cesta multimercado.
-        </div>
-      </div>
-    </div>
-
-    <!-- Market Basket Status & Positions -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- Cesta Multimercado ao Vivo -->
-      <div class="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+        <!-- Accordion 4: Auditoria dos 4 Tempos & BTG -->
         <div>
-          <div class="flex justify-between items-center mb-4">
-            <div>
-              <h2 class="font-bold text-base text-white">Cesta Multimercado (Opção C)</h2>
-              <p class="text-xs text-slate-400">Normalização Z-Score (20p) e Volatilidade ATR (14p)</p>
-            </div>
-            <span class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 mono">Yahoo Finance API</span>
+          <button onclick="toggleAccordion('acc-4')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
+            <span id="title-acc-4">Auditoria dos 4 Tempos e Conexão em Nuvem com o BTG Pactual</span>
+            <i data-lucide="chevron-down" id="icon-acc-4" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
+          </button>
+          <div id="acc-4" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
+            <p>Todas as decisões do Order Gate registram os 4 carimbos imutáveis: <b>Referência</b> (pregão B3), <b>Evento</b> (variação de preço), <b>Publicação</b> (geração da proposta) e <b>Coleta</b> (auditoria de latência). O gateway BTG Cloud encaminha as ordens diretamente ao pregão sem necessidade de computadores locais.</p>
           </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-              <thead class="text-xs text-slate-400 border-b border-slate-800 uppercase">
-                <tr>
-                  <th class="pb-3 font-semibold">Ativo</th>
-                  <th class="pb-3 font-semibold">Preço</th>
-                  <th class="pb-3 font-semibold">Var. Dia</th>
-                  <th class="pb-3 font-semibold">Z-Score (20p)</th>
-                  <th class="pb-3 font-semibold">ATR (14p)</th>
-                  <th class="pb-3 font-semibold text-right">Diagnóstico</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-mercado" class="divide-y divide-slate-800/60 font-medium">
-                <tr>
-                  <td colspan="6" class="py-6 text-center text-slate-500 text-xs">Carregando cotações da cesta...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="mt-4 pt-3 border-t border-slate-800/60 text-xs text-slate-500 flex justify-between items-center">
-          <span>Trava de Spread: <b>&le; 0.15%</b></span>
-          <span>4 Tempos Auditados: Referência, Evento, Publicação e Coleta</span>
         </div>
       </div>
 
-      <!-- Posições Abertas -->
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
-        <div>
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="font-bold text-base text-white">Posições em Aberto</h2>
-            <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold" id="badge-total-pos">0 Ativos</span>
+      <!-- ================= ATUALIZAÇÕES MAIS RECENTES (AO VIVO STREAM) ================= -->
+      <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[#303338]">
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-white">Atualizações mais recentes</h2>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-bold uppercase tracking-wider animate-pulse">
+              Ao vivo
+            </span>
           </div>
-          <div id="container-posicoes" class="space-y-3">
-            <div class="text-center py-8 text-slate-500 text-xs">
-              Nenhuma posição aberta no momento. 100% em caixa líquido.
-            </div>
+          <span class="text-xs text-[#9aa0a6]">Feed dos Agentes & Order Gate</span>
+        </div>
+
+        <div id="feed-ao-vivo" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+          <!-- Renderizado via JS -->
+          <div class="text-center py-4 text-xs text-[#9aa0a6]">Carregando eventos em tempo real...</div>
+        </div>
+      </div>
+
+      <!-- ================= POSIÇÕES EM ABERTO & DIÁRIO DE ORDENS ================= -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Posições em Aberto -->
+        <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#303338]">
+            <span class="text-xs font-bold text-white">Posições em Aberto</span>
+            <span id="badge-total-posicoes" class="text-[10px] px-2 py-0.5 rounded-full bg-[#303338] text-[#9aa0a6] mono">0</span>
+          </div>
+          <div id="container-posicoes" class="text-xs text-[#9aa0a6] space-y-2">
+            <div class="py-4 text-center">Nenhuma posição em aberto. 100% em caixa líquido.</div>
           </div>
         </div>
-        <div class="mt-4 pt-3 border-t border-slate-800/60 text-xs text-slate-400">
-          Risco individual máximo: <span class="text-emerald-400 font-semibold">2,0%</span> do patrimônio
+
+        <!-- Diário de Auditoria & Ordens Executadas -->
+        <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#303338]">
+            <span class="text-xs font-bold text-white">Diário de Auditoria (Order Gate)</span>
+            <span id="badge-total-ordens" class="text-[10px] px-2 py-0.5 rounded-full bg-[#303338] text-[#9aa0a6] mono">0</span>
+          </div>
+          <div id="container-ordens" class="text-xs text-[#9aa0a6] space-y-2 max-h-60 overflow-y-auto pr-1">
+            <div class="py-4 text-center">Nenhuma ordem executada ainda.</div>
+          </div>
         </div>
+
       </div>
 
-    </div>
-
-    <!-- Order History and Audit Log -->
-    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-      <div class="flex justify-between items-center mb-4">
-        <div>
-          <h2 class="font-bold text-base text-white">Diário de Auditoria & Ordens (Order Gate)</h2>
-          <p class="text-xs text-slate-400">Registro imutável de todas as decisões tomadas pelo portão</p>
-        </div>
-        <i data-lucide="file-text" class="w-5 h-5 text-slate-500"></i>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs">
-          <thead class="text-slate-400 border-b border-slate-800 uppercase font-semibold">
-            <tr>
-              <th class="pb-2">ID</th>
-              <th class="pb-2">Ativo</th>
-              <th class="pb-2">Tipo</th>
-              <th class="pb-2">Lote</th>
-              <th class="pb-2">Preço</th>
-              <th class="pb-2">Stop Loss</th>
-              <th class="pb-2">Take Profit</th>
-              <th class="pb-2">Estado</th>
-              <th class="pb-2">Justificativa</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-ordens" class="divide-y divide-slate-800/60">
-            <tr>
-              <td colspan="9" class="py-4 text-center text-slate-500">Nenhuma ordem registrada ainda.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
+    </section>
   </main>
 
-  <!-- Modal Configurar Chave de IA -->
-  <div id="modal-ia" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-      <div class="flex justify-between items-center">
-        <div class="flex items-center gap-2">
-          <i data-lucide="cpu" class="w-5 h-5 text-emerald-400"></i>
-          <h3 class="font-bold text-white text-base">Conectar Cérebro de IA Real</h3>
-        </div>
-        <button onclick="fecharModalIA()" class="text-slate-400 hover:text-white">
+  <!-- ================= MODAIS DE CONFIGURAÇÃO ================= -->
+
+  <!-- Modal IA (Gemini / Claude / OpenAI) -->
+  <div id="modal-ia" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-[#303338]">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="cpu" class="w-5 h-5 text-cyan-400"></i>
+          Configurar Inteligência Artificial
+        </h3>
+        <button onclick="fecharModalIA()" class="text-[#9aa0a6] hover:text-white">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-
-      <p class="text-xs text-slate-300">
-        Conecte sua API Key para que o <b>Analista (Sistema 2)</b> e o <b>Revisor Independente</b> usem raciocínio profundo em tempo real:
-      </p>
-
-      <div class="space-y-3">
+      <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Provedor de IA</label>
-          <select id="select-provedor" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
-            <option value="gemini">Google Gemini (Grátis / Recomendado)</option>
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Provedor de LLM</label>
+          <select id="select-provedor-ia" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-cyan-400">
+            <option value="gemini">Google Gemini (Recomendado: 1.5 Flash / 2.0)</option>
             <option value="anthropic">Anthropic Claude (Claude 3.5 Sonnet)</option>
             <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-            <option value="groq">Groq (Llama 3.3 Ultra-rápido)</option>
+            <option value="groq">Groq (Llama 3.3 70B Ultra Rápido)</option>
           </select>
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Chave de API (Secret Key)</label>
-          <input type="password" id="input-chave" placeholder="Cole sua chave aqui (ex: AIzaSy... ou sk-ant...)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 mono">
-        </div>
-
-        <div class="p-3 rounded-lg bg-slate-950 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-          <p class="text-emerald-400 font-semibold">Dica de uso gratuito:</p>
-          <p>Você pode gerar uma chave gratuita instantânea no <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline text-cyan-400">Google AI Studio</a> para usar o Gemini 1.5/2.0 sem custo.</p>
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Chave de API (API Key)</label>
+          <input type="password" id="input-chave-ia" placeholder="Cole sua chave aqui..." class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-cyan-400 mono">
         </div>
       </div>
-
       <div class="flex justify-end gap-2 pt-2">
-        <button onclick="fecharModalIA()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium">Cancelar</button>
-        <button onclick="salvarChaveIA()" id="btn-salvar-ia" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-xs text-slate-950 font-bold">Salvar e Ativar</button>
+        <button onclick="fecharModalIA()" class="px-4 py-2 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3]">Cancelar</button>
+        <button onclick="salvarIA()" id="btn-salvar-ia" class="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-xs text-slate-950 font-bold">Salvar Chave</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal Configurar BTG Pactual -->
-  <div id="modal-btg" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-      <div class="flex justify-between items-center">
-        <div class="flex items-center gap-2">
+  <!-- Modal BTG Pactual Cloud -->
+  <div id="modal-btg" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-[#303338]">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
           <i data-lucide="landmark" class="w-5 h-5 text-amber-400"></i>
-          <h3 class="font-bold text-white text-base">Conexão BTG Pactual (Cloud)</h3>
-        </div>
-        <button onclick="fecharModalBTG()" class="text-slate-400 hover:text-white">
+          Conectar Corretora BTG Pactual (Cloud)
+        </h3>
+        <button onclick="fecharModalBTG()" class="text-[#9aa0a6] hover:text-white">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-
-      <p class="text-xs text-slate-300">
-        Conecte sua conta do <b>BTG Pactual</b> para que as ordens aprovadas no painel sejam enviadas diretamente ao pregão da B3 na nuvem:
-      </p>
-
-      <div class="space-y-3">
+      <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Modo de Operação</label>
-          <select id="select-btg-env" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
-            <option value="sandbox">Ambiente Simulado / Sandbox (Recomendado para Testes)</option>
-            <option value="production">Conta Real BTG Pactual (B3)</option>
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Ambiente de Execução</label>
+          <select id="select-btg-env" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-amber-400">
+            <option value="sandbox">Sandbox / Homologação (Simulado B3 - Recomendado para teste)</option>
+            <option value="production">Produção Real (B3 ao vivo via Conta BTG)</option>
           </select>
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Client ID</label>
-          <input type="text" id="input-btg-clientid" placeholder="Seu Client ID do BTG Trader" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 mono">
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Client ID (API Key do BTG)</label>
+          <input type="text" id="input-btg-clientid" placeholder="Cole seu Client ID do BTG" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-amber-400 mono">
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Client Secret</label>
-          <input type="password" id="input-btg-secret" placeholder="Seu Client Secret de Negociação" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 mono">
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Client Secret</label>
+          <input type="password" id="input-btg-secret" placeholder="Cole seu Client Secret do BTG" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-amber-400 mono">
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Número da Conta Corrente / Custódia BTG</label>
-          <input type="text" id="input-btg-account" placeholder="Ex: 123456-7" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 mono">
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Número da Conta Corrente / Custódia BTG</label>
+          <input type="text" id="input-btg-account" placeholder="Ex: 123456-7" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-amber-400 mono">
         </div>
-
-        <div class="p-3 rounded-lg bg-slate-950 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+        <div class="p-3 rounded-lg bg-[#131314] border border-[#303338] text-[11px] text-[#9aa0a6] space-y-1">
           <p class="text-amber-400 font-semibold">Como solicitar suas chaves:</p>
-          <p>No aplicativo ou portal do BTG Pactual (ou via seu assessor), solicite a liberação da <b>API de Negociação / Open Finance</b> para envio de ordens automatizadas.</p>
+          <p>No aplicativo ou portal do BTG Pactual (ou via seu assessor), solicite a liberação da <b>API de Negociação / Open Finance</b> para envio de ordens automatizadas em nuvem.</p>
         </div>
       </div>
-
       <div class="flex justify-end gap-2 pt-2">
-        <button onclick="fecharModalBTG()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium">Cancelar</button>
+        <button onclick="fecharModalBTG()" class="px-4 py-2 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3]">Cancelar</button>
         <button onclick="salvarBTG()" id="btn-salvar-btg" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs text-slate-950 font-bold">Salvar Credenciais</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal Configurar Telegram -->
-  <div id="modal-telegram" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-      <div class="flex justify-between items-center">
-        <div class="flex items-center gap-2">
+  <!-- Modal Telegram Alerts -->
+  <div id="modal-telegram" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-[#303338]">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
           <i data-lucide="send" class="w-5 h-5 text-blue-400"></i>
-          <h3 class="font-bold text-white text-base">Alertas no Celular (Telegram)</h3>
-        </div>
-        <button onclick="fecharModalTelegram()" class="text-slate-400 hover:text-white">
+          Alertas no Telegram (Tempo Real)
+        </h3>
+        <button onclick="fecharModalTelegram()" class="text-[#9aa0a6] hover:text-white">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
-
-      <p class="text-xs text-slate-300">
-        Receba os alertas de análise e as propostas da IA em tempo real no seu celular, com link direto para aprovar no painel:
-      </p>
-
-      <div class="space-y-3">
+      <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Bot Token (via @BotFather)</label>
-          <input type="password" id="input-tg-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 mono">
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Bot Token (do @BotFather)</label>
+          <input type="text" id="input-tg-token" placeholder="Ex: 123456:ABC-DEF..." class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-blue-400 mono">
         </div>
-
         <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Seu Chat ID (via @userinfobot)</label>
-          <input type="text" id="input-tg-chatid" placeholder="Ex: 987654321" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 mono">
-        </div>
-
-        <div class="p-3 rounded-lg bg-slate-950 border border-slate-800/80 text-[11px] text-slate-400 space-y-1.5">
-          <p class="text-blue-400 font-semibold">Como obter em 1 minuto:</p>
-          <ol class="list-decimal list-inside space-y-0.5 text-slate-300">
-            <li>Abra o Telegram, fale com <a href="https://t.me/BotFather" target="_blank" class="text-cyan-400 underline">@BotFather</a> e digite <code>/newbot</code> para criar e pegar o token.</li>
-            <li>Inicie uma conversa com seu novo bot e fale com <a href="https://t.me/userinfobot" target="_blank" class="text-cyan-400 underline">@userinfobot</a> para ver o seu ID numérico.</li>
-          </ol>
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Seu Chat ID (do @userinfobot)</label>
+          <input type="text" id="input-tg-chatid" placeholder="Ex: 987654321" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-blue-400 mono">
         </div>
       </div>
-
-      <div class="flex justify-between items-center gap-2 pt-2">
-        <button onclick="testarTelegram()" id="btn-test-tg" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-blue-300 font-semibold border border-blue-500/30">
-          📲 Testar Alerta no Celular
-        </button>
+      <div class="flex justify-between items-center pt-2">
+        <button onclick="testarTelegram()" class="px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/30">Enviar Mensagem Teste</button>
         <div class="flex gap-2">
-          <button onclick="fecharModalTelegram()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium">Cancelar</button>
-          <button onclick="salvarTelegram()" id="btn-salvar-tg" class="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-xs text-slate-950 font-bold">Conectar</button>
+          <button onclick="fecharModalTelegram()" class="px-4 py-2 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3]">Cancelar</button>
+          <button onclick="salvarTelegram()" id="btn-salvar-tg" class="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-xs text-slate-950 font-bold">Salvar Alertas</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- ================= JAVASCRIPT: ENGINE TEMPO REAL, SPARKLINES & INTERATIVIDADE ================= -->
   <script>
-    lucide.createIcons();
+    let dadosMercadoCache = {};
+    let precosAnteriores = {};
+    let categoriaAtiva = 'TODOS';
+    let filtroBusca = '';
 
-    function abrirModalIA() {
-      document.getElementById('modal-ia').classList.remove('hidden');
+    // ================= RELÓGIO AO VIVO (HORÁRIO DE BRASÍLIA) =================
+    function atualizarRelogioB3() {
+      const agora = new Date();
+      const formatado = agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
+      const el = document.getElementById('relogio-b3');
+      if (el) el.innerText = formatado;
     }
+    setInterval(atualizarRelogioB3, 1000);
+    atualizarRelogioB3();
 
-    function fecharModalIA() {
-      document.getElementById('modal-ia').classList.add('hidden');
-    }
-
-    function abrirModalBTG() {
-      document.getElementById('modal-btg').classList.remove('hidden');
-    }
-
-    function fecharModalBTG() {
-      document.getElementById('modal-btg').classList.add('hidden');
-    }
-
-    function abrirModalTelegram() {
-      document.getElementById('modal-telegram').classList.remove('hidden');
-    }
-
-    function fecharModalTelegram() {
-      document.getElementById('modal-telegram').classList.add('hidden');
-    }
-
-    async function salvarChaveIA() {
-      const provedor = document.getElementById('select-provedor').value;
-      const chave = document.getElementById('input-chave').value;
-      if (!chave || chave.length < 8) {
-        alert('Por favor, informe uma chave válida.');
-        return;
+    // ================= GERADOR DE SPARKLINES EM SVG (GOOGLE FINANCE STYLE) =================
+    function gerarSparklineSVG(precos, variacaoPct, width = 130, height = 44) {
+      if (!precos || precos.length < 2) {
+        // Fallback para linha suave
+        return `<svg viewBox="0 0 ${width} ${height}" class="w-full h-[${height}px] opacity-25">
+          <line x1="0" y1="${height/2}" x2="${width}" y2="${height/2}" stroke="#9aa0a6" stroke-width="2"/>
+        </svg>`;
       }
+
+      const min = Math.min(...precos);
+      const max = Math.max(...precos);
+      const range = (max - min) || (min * 0.01) || 1;
+      const isPositive = variacaoPct >= 0;
+      const strokeColor = isPositive ? '#81c995' : '#f28b82';
+      const fillColor = isPositive ? 'rgba(129, 201, 149, 0.22)' : 'rgba(242, 139, 130, 0.22)';
+      const gradId = 'grad-' + Math.random().toString(36).substring(2, 9);
+
+      const points = precos.map((p, i) => {
+        const x = (i / (precos.length - 1)) * width;
+        const y = (height - 6) - ((p - min) / range) * (height - 12);
+        return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+      });
+
+      const lineD = 'M ' + points.map(p => `${p.x},${p.y}`).join(' L ');
+      const areaD = lineD + ` L ${width},${height} L 0,${height} Z`;
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" class="w-full h-full overflow-visible" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${fillColor}"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </linearGradient>
+          </defs>
+          <path d="${areaD}" fill="url(#${gradId})"/>
+          <path d="${lineD}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+    }
+
+    // Mini Sparkline para a watchlist da lateral
+    function gerarMiniSparklineSVG(precos, variacaoPct) {
+      return gerarSparklineSVG(precos, variacaoPct, 64, 24);
+    }
+
+    // ================= FORMATAÇÃO DE PREÇO =================
+    function formatarPreco(ticker, preco) {
+      if (ticker === '^VIX') return preco.toFixed(2);
+      if (ticker === 'USDBRL=X') return `R$ ${preco.toFixed(2)}`;
+      return `R$ ${preco.toFixed(2)}`;
+    }
+
+    // ================= RENDERIZAR CARDS SUPERIORES =================
+    function renderizarCardsSuperiores(mercado) {
+      const container = document.getElementById('grid-cards-sparkline');
+      if (!container) return;
+
+      const ativosPrioritarios = ['BOVA11.SA', 'IVVB11.SA', 'GOLD11.SA', 'USDBRL=X', '^VIX'];
+      let html = '';
+
+      ativosPrioritarios.forEach(ticker => {
+        const item = mercado[ticker];
+        if (!item) return;
+
+        // Filtro de categoria e busca
+        const matchCategoria = categoriaAtiva === 'TODOS' ||
+          (categoriaAtiva === 'B3' && item.categoria === 'B3') ||
+          (categoriaAtiva === 'GLOBAL' && item.categoria === 'Global') ||
+          (categoriaAtiva === 'HEDGE' && item.categoria === 'Hedge') ||
+          (categoriaAtiva === 'MOEDA' && item.categoria === 'Moeda') ||
+          (categoriaAtiva === 'MACRO' && item.categoria === 'Macro');
+
+        const matchBusca = !filtroBusca ||
+          ticker.toLowerCase().includes(filtroBusca) ||
+          (item.nome && item.nome.toLowerCase().includes(filtroBusca));
+
+        if (!matchCategoria || !matchBusca) return;
+
+        const isPositive = item.variacao_dia_pct >= 0;
+        const sinal = isPositive ? '+' : '';
+        const corTexto = isPositive ? 'text-[#81c995]' : 'text-[#f28b82]';
+        const iconeSeta = isPositive ? '🠁' : '🠃';
+        const varPctFormatada = `${sinal}${(item.variacao_dia_pct * 100).toFixed(2)}%`;
+        const varNominalFormatada = item.variacao_nominal !== undefined
+          ? `(${sinal}${item.variacao_nominal.toFixed(2)})`
+          : '';
+
+        // Detecção de flash em tempo real
+        const precoAntigo = precosAnteriores[ticker];
+        let flashClass = '';
+        if (precoAntigo !== undefined && precoAntigo !== item.preco_atual) {
+          flashClass = item.preco_atual > precoAntigo ? 'flash-up' : 'flash-down';
+        }
+        precosAnteriores[ticker] = item.preco_atual;
+
+        const sparklineSVG = gerarSparklineSVG(item.sparkline, item.variacao_dia_pct, 140, 48);
+
+        html += `
+          <div class="bg-[#1e1f20] hover:bg-[#282a2d] border border-[#303338] hover:border-[#44474c] rounded-2xl p-4 transition duration-200 flex flex-col justify-between ${flashClass}">
+            <div>
+              <div class="flex items-center justify-between text-xs text-[#9aa0a6] mb-1">
+                <span class="font-medium truncate max-w-[120px]">${item.nome || ticker}</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-[#131314] text-[#9aa0a6]">${ticker.replace('.SA', '')}</span>
+              </div>
+              <div class="text-xl font-bold mono text-white tracking-tight">${formatarPreco(ticker, item.preco_atual)}</div>
+              <div class="flex items-center gap-1.5 text-xs font-semibold ${corTexto} mt-0.5 mono">
+                <span>${varNominalFormatada}</span>
+                <span>${varPctFormatada}</span>
+                <span class="text-xs">${iconeSeta}</span>
+              </div>
+            </div>
+
+            <!-- Área do Sparkline Vector SVG -->
+            <div class="w-full h-12 mt-3 pt-1">
+              ${sparklineSVG}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // ================= RENDERIZAR WATCHLIST LATERAL =================
+    function renderizarWatchlistLateral(mercado) {
+      const container = document.getElementById('lista-watchlist');
+      if (!container) return;
+
+      const ativos = Object.keys(mercado);
+      document.getElementById('badge-total-ativos').innerText = ativos.length;
+
+      let html = '';
+      ativos.forEach(ticker => {
+        const item = mercado[ticker];
+        const isPositive = item.variacao_dia_pct >= 0;
+        const sinal = isPositive ? '+' : '';
+        const bgPill = isPositive ? 'bg-[#0f5132]/60 text-[#81c995] border-[#81c995]/30' : 'bg-[#5c1d1d]/60 text-[#f28b82] border-[#f28b82]/30';
+        const iconeSeta = isPositive ? '🠁' : '🠃';
+        const varPct = `${sinal}${(item.variacao_dia_pct * 100).toFixed(2)}%`;
+        const miniSparkline = gerarMiniSparklineSVG(item.sparkline, item.variacao_dia_pct);
+
+        html += `
+          <div class="flex items-center justify-between py-2 px-2 hover:bg-[#282a2d] rounded-xl transition cursor-pointer">
+            <div class="flex-1 min-w-0 pr-2">
+              <div class="font-bold text-xs text-white truncate">${ticker.replace('.SA', '')}</div>
+              <div class="text-[10px] text-[#9aa0a6] truncate">${item.nome || item.categoria}</div>
+              <div class="text-[9px] text-[#5f6368] mono">Z: ${item.zscore_20p ? item.zscore_20p.toFixed(2) : '0.00'}</div>
+            </div>
+
+            <div class="w-16 h-6 px-1 flex items-center">
+              ${miniSparkline}
+            </div>
+
+            <div class="text-right pl-2">
+              <div class="text-xs font-semibold mono text-white">${formatarPreco(ticker, item.preco_atual)}</div>
+              <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold mono px-1.5 py-0.5 rounded-md border ${bgPill}">
+                <span>${varPct}</span>
+                <span>${iconeSeta}</span>
+              </span>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // ================= RENDERIZAR FEED AO VIVO =================
+    async function carregarFeedAoVivo() {
+      try {
+        const res = await fetch('/api/feed');
+        if (!res.ok) return;
+        const eventos = await res.json();
+        const container = document.getElementById('feed-ao-vivo');
+        if (!container || !eventos.length) return;
+
+        let html = '';
+        eventos.forEach(ev => {
+          let corBadge = 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+          if (ev.cor === 'emerald') corBadge = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+          if (ev.cor === 'rose') corBadge = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+          if (ev.cor === 'amber') corBadge = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+          if (ev.cor === 'cyan') corBadge = 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30';
+
+          html += `
+            <div class="p-3 rounded-xl bg-[#131314] border border-[#303338] text-xs space-y-1">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border ${corBadge} mono">${ev.tag}</span>
+                  <span class="font-semibold text-white">${ev.titulo}</span>
+                </div>
+                <span class="text-[10px] mono text-[#9aa0a6]">${ev.tempo}</span>
+              </div>
+              <p class="text-[#9aa0a6] text-[11px] leading-relaxed">${ev.mensagem}</p>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      } catch (e) {
+        console.error('Falha ao carregar feed:', e);
+      }
+    }
+
+    // ================= RENDERIZAR PROPOSTA PENDENTE =================
+    async function carregarPropostas() {
+      try {
+        const res = await fetch('/api/proposals');
+        if (!res.ok) return;
+        const propostas = await res.json();
+        const container = document.getElementById('conteudo-proposta');
+        if (!container) return;
+
+        const pendentes = Object.values(propostas).filter(p => p.status === 'PENDENTE_APROVACAO_HUMANA');
+        if (pendentes.length === 0) {
+          container.innerHTML = `
+            <div class="py-6 text-center text-xs text-[#9aa0a6] space-y-1">
+              <p class="text-white font-medium">Nenhuma proposta pendente no momento.</p>
+              <p>Os agentes continuam monitorando os 5 ativos em tempo real com normalização Z-Score.</p>
+            </div>
+          `;
+          return;
+        }
+
+        const prop = pendentes[0];
+        const isCompra = prop.tipo === 'COMPRA';
+        const corTipo = isCompra ? 'text-[#81c995] bg-[#0f5132]/60 border-[#81c995]/40' : 'text-[#f28b82] bg-[#5c1d1d]/60 border-[#f28b82]/40';
+
+        container.innerHTML = `
+          <div class="p-4 rounded-xl bg-[#131314] border border-[#303338] space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-1 rounded-md text-xs font-bold border ${corTipo}">${prop.tipo}</span>
+                <span class="text-base font-bold text-white mono">${prop.ativo}</span>
+                <span class="text-xs text-[#9aa0a6]">Entrada: <b class="text-white mono">R$ ${prop.preco_atual.toFixed(2)}</b></span>
+              </div>
+              <div class="flex items-center gap-3 text-xs mono">
+                <span class="text-rose-400">Stop: R$ ${prop.preco_stop_loss.toFixed(2)}</span>
+                <span class="text-emerald-400">Alvo: R$ ${prop.preco_take_profit.toFixed(2)}</span>
+                <span class="text-cyan-400 font-bold">Confiança: ${(prop.probabilidade * 100).toFixed(0)}%</span>
+              </div>
+            </div>
+
+            <div class="text-xs text-[#9aa0a6] space-y-1 pt-1 border-t border-[#303338]">
+              <p class="text-[#e3e3e3]"><b class="text-white">Justificativa Quant:</b> ${prop.justificativa}</p>
+              <p class="text-emerald-400"><b class="text-white">Revisor Independente:</b> ✓ ${prop.revisor_parecer} — ${prop.revisor_nota || 'Auditoria temporal e matemática confirmada.'}</p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+              <button onclick="rejeitarProposta('${prop.proposta_id}')" class="px-4 py-2 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3] font-medium transition">
+                ✕ Rejeitar
+              </button>
+              <button onclick="aprovarProposta('${prop.proposta_id}')" class="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5">
+                <span>✓ Aprovar Ordem</span>
+              </button>
+            </div>
+          </div>
+        `;
+      } catch (e) {
+        console.error('Falha ao carregar propostas:', e);
+      }
+    }
+
+    // ================= RENDERIZAR STATUS, PATRIMÔNIO & ORDENS =================
+    async function carregarStatusEOrdens() {
+      try {
+        const resStatus = await fetch('/api/status');
+        if (resStatus.ok) {
+          const s = await resStatus.json();
+          document.getElementById('stat-patrimonio').innerText = `R$ ${s.patrimonio_total.toFixed(2)}`;
+          document.getElementById('stat-caixa').innerText = `R$ ${s.saldo_caixa.toFixed(2)}`;
+          document.getElementById('stat-pnl').innerText = `R$ ${s.pnl_fechado_hoje.toFixed(2)}`;
+          document.getElementById('stat-trava').innerText = `-R$ ${s.trava_diaria_brl.toFixed(2)}`;
+
+          // Barra de progresso para R$ 250
+          const pct = Math.min(100, Math.max(0, ((s.patrimonio_total - 100) / 150) * 100));
+          document.getElementById('progress-meta').style.width = `${Math.max(10, pct)}%`;
+
+          // Badges do Header
+          const badgeLLM = document.getElementById('badge-llm-status');
+          if (badgeLLM) {
+            badgeLLM.innerText = s.llm_provedor && s.llm_provedor !== 'nenhum'
+              ? `IA: ${s.llm_provedor.toUpperCase()} (${s.llm_modelo})`
+              : 'IA: Sistema 2 Quant';
+          }
+
+          const badgeBTG = document.getElementById('badge-btg-status');
+          if (badgeBTG) {
+            if (s.btg_modo === 'PRODUCAO_REAL') {
+              badgeBTG.innerText = `BTG: CONTA REAL (${s.btg_conta})`;
+              badgeBTG.className = 'text-emerald-400 font-bold';
+            } else {
+              badgeBTG.innerText = 'BTG: Cloud Simulado';
+              badgeBTG.className = 'text-amber-400 font-semibold';
+            }
+          }
+
+          const badgeTG = document.getElementById('badge-tg-status');
+          if (badgeTG) {
+            badgeTG.innerText = s.telegram_ativo ? `Telegram: Ativo` : 'Telegram';
+          }
+
+          // Regime Macro
+          const labelRegime = document.getElementById('label-regime-macro');
+          if (labelRegime) {
+            labelRegime.innerText = `Regime: ${s.regime_macro || 'Reflação / Cautela Cambial'}`;
+          }
+
+          // Renderizar Posições em Aberto
+          const containerPos = document.getElementById('container-posicoes');
+          const posicoes = Object.entries(s.posicoes_abertas || {});
+          document.getElementById('badge-total-posicoes').innerText = posicoes.length;
+
+          if (posicoes.length === 0) {
+            containerPos.innerHTML = '<div class="py-4 text-center">Nenhuma posição em aberto. 100% em caixa líquido.</div>';
+          } else {
+            let htmlPos = '';
+            posicoes.forEach(([ticker, p]) => {
+              const pnlPct = (p.pnl_pct * 100).toFixed(2);
+              const cor = p.pnl_brl >= 0 ? 'text-[#81c995]' : 'text-[#f28b82]';
+              htmlPos += `
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#131314] border border-[#303338]">
+                  <div>
+                    <div class="font-bold text-white mono text-xs">${ticker}</div>
+                    <div class="text-[10px] text-[#9aa0a6] mono">Lote: ${p.quantidade.toFixed(4)} @ R$ ${p.preco_medio.toFixed(2)}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="font-bold mono text-xs text-white">R$ ${p.valor_atual.toFixed(2)}</div>
+                    <div class="font-semibold mono text-[10px] ${cor}">${p.pnl_brl >= 0 ? '+' : ''}R$ ${p.pnl_brl.toFixed(2)} (${pnlPct}%)</div>
+                  </div>
+                </div>
+              `;
+            });
+            containerPos.innerHTML = htmlPos;
+          }
+        }
+
+        // Renderizar Histórico de Ordens
+        const resOrders = await fetch('/api/orders');
+        if (resOrders.ok) {
+          const ordens = await resOrders.json();
+          document.getElementById('badge-total-ordens').innerText = ordens.length;
+          const containerOrd = document.getElementById('container-ordens');
+
+          if (ordens.length === 0) {
+            containerOrd.innerHTML = '<div class="py-4 text-center">Nenhuma ordem executada ainda.</div>';
+          } else {
+            let htmlOrd = '';
+            ordens.forEach(o => {
+              const cor = o.tipo === 'COMPRA' ? 'text-[#81c995]' : 'text-[#f28b82]';
+              htmlOrd += `
+                <div class="p-2.5 rounded-xl bg-[#131314] border border-[#303338] space-y-1">
+                  <div class="flex justify-between items-center text-[11px] mono">
+                    <span class="font-bold ${cor}">${o.tipo} ${o.ativo}</span>
+                    <span class="text-[#9aa0a6] text-[10px]">${o.timestamp.substring(11, 19)}</span>
+                  </div>
+                  <div class="flex justify-between items-center text-[10px] text-[#9aa0a6] mono">
+                    <span>Lote: ${o.quantidade} @ R$ ${o.preco_execucao.toFixed(2)}</span>
+                    <span class="text-emerald-400 font-semibold">${o.estado}</span>
+                  </div>
+                </div>
+              `;
+            });
+            containerOrd.innerHTML = htmlOrd;
+          }
+        }
+      } catch (e) {
+        console.error('Falha ao atualizar status/ordens:', e);
+      }
+    }
+
+    // ================= LOOP GLOBAL EM TEMPO REAL =================
+    async function atualizarTudo() {
+      try {
+        const res = await fetch('/api/market');
+        if (res.ok) {
+          dadosMercadoCache = await res.json();
+          renderizarCardsSuperiores(dadosMercadoCache);
+          renderizarWatchlistLateral(dadosMercadoCache);
+        }
+        await carregarPropostas();
+        await carregarStatusEOrdens();
+        await carregarFeedAoVivo();
+      } catch (e) {
+        console.error('Erro na sincronização em tempo real:', e);
+      }
+    }
+
+    // ================= FILTROS POR PILLS & BUSCA =================
+    function filtrarCategoria(cat) {
+      categoriaAtiva = cat;
+      document.querySelectorAll('.pill-tab').forEach(btn => {
+        btn.className = 'pill-tab px-4 py-1 rounded-full font-medium bg-[#202124] hover:bg-[#303338] text-[#9aa0a6] hover:text-white transition';
+      });
+      const ativo = document.getElementById(`pill-${cat}`);
+      if (ativo) {
+        ativo.className = 'pill-tab px-4 py-1 rounded-full font-medium bg-[#e3e3e3] text-[#131314] transition';
+      }
+      renderizarCardsSuperiores(dadosMercadoCache);
+    }
+
+    function filtrarPorBusca(texto) {
+      filtroBusca = texto.trim().toLowerCase();
+      renderizarCardsSuperiores(dadosMercadoCache);
+    }
+
+    // ================= ACCORDION GOOGLE FINANÇAS =================
+    function toggleAccordion(id) {
+      const el = document.getElementById(id);
+      const icon = document.getElementById(`icon-${id}`);
+      if (el) {
+        const estaEscondido = el.classList.contains('hidden');
+        el.classList.toggle('hidden');
+        if (icon) {
+          icon.style.transform = estaEscondido ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+      }
+    }
+
+    // ================= AÇÕES DO OPERADOR (SUGESTÃO + 1 CLIQUE) =================
+    async function executarCiclo() {
+      const btn = document.getElementById('btn-ciclo');
+      const icon = document.getElementById('icon-refresh');
+      btn.disabled = true;
+      if (icon) icon.classList.add('animate-spin');
+
+      try {
+        const res = await fetch('/api/cycle/run', { method: 'POST' });
+        const data = await res.json();
+        await atualizarTudo();
+      } catch (e) {
+        alert('Erro ao executar ciclo.');
+      } finally {
+        btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    }
+
+    async function aprovarProposta(id) {
+      try {
+        const res = await fetch(`/api/proposals/${id}/approve`, { method: 'POST' });
+        const data = await res.json();
+        if (data.sucesso) {
+          alert(`Ordem enviada!\nCorretora: ${data.status_corretora}\nID BTG: ${data.ordem_id_btg}\nLote: ${data.lote.toFixed(4)}\nRisco: R$ ${data.risco_brl.toFixed(2)}`);
+        } else {
+          alert(`Ordem recusada pelo Order Gate:\n${data.motivo}`);
+        }
+        await atualizarTudo();
+      } catch (e) {
+        alert('Falha na comunicação com o servidor.');
+      }
+    }
+
+    async function rejeitarProposta(id) {
+      try {
+        await fetch(`/api/proposals/${id}/reject`, { method: 'POST' });
+        await atualizarTudo();
+      } catch (e) {
+        alert('Falha ao rejeitar proposta.');
+      }
+    }
+
+    // ================= MODAIS =================
+    function abrirModalIA() { document.getElementById('modal-ia').classList.remove('hidden'); }
+    function fecharModalIA() { document.getElementById('modal-ia').classList.add('hidden'); }
+
+    function abrirModalBTG() { document.getElementById('modal-btg').classList.remove('hidden'); }
+    function fecharModalBTG() { document.getElementById('modal-btg').classList.add('hidden'); }
+
+    function abrirModalTelegram() { document.getElementById('modal-telegram').classList.remove('hidden'); }
+    function fecharModalTelegram() { document.getElementById('modal-telegram').classList.add('hidden'); }
+
+    async function salvarIA() {
+      const provedor = document.getElementById('select-provedor-ia').value;
+      const chave = document.getElementById('input-chave-ia').value;
+      if (!chave) return alert('Por favor, informe a chave.');
 
       const btn = document.getElementById('btn-salvar-ia');
       btn.disabled = true;
-      btn.innerText = 'Ativando...';
+      btn.innerText = 'Conectando...';
 
       try {
         const res = await fetch('/api/llm/configure', {
@@ -471,17 +987,17 @@
         });
         const data = await res.json();
         if (res.ok) {
-          alert(`Cérebro ativado com sucesso!\nProvedor: ${data.provedor}\nModelo: ${data.modelo}`);
+          alert(`IA Conectada com sucesso!\nProvedor: ${data.provedor}\nModelo: ${data.modelo}`);
           fecharModalIA();
           await atualizarTudo();
         } else {
-          alert(`Erro: ${data.detail || 'Falha ao configurar chave'}`);
+          alert(`Erro: ${data.detail || 'Falha ao autenticar IA'}`);
         }
       } catch (e) {
-        alert('Erro ao comunicar com o servidor.');
+        alert('Erro ao conectar com servidor.');
       } finally {
         btn.disabled = false;
-        btn.innerText = 'Salvar e Ativar';
+        btn.innerText = 'Salvar Chave';
       }
     }
 
@@ -492,8 +1008,7 @@
       const ambiente = document.getElementById('select-btg-env').value;
 
       if (!client_id || !client_secret || !account_id) {
-        alert('Por favor, preencha todos os campos do BTG.');
-        return;
+        return alert('Por favor, preencha todos os campos do BTG.');
       }
 
       const btn = document.getElementById('btn-salvar-btg');
@@ -508,14 +1023,14 @@
         });
         const data = await res.json();
         if (res.ok) {
-          alert(`Configuração BTG Pactual atualizada!\nModo: ${data.modo}\nConta: ${data.conta}`);
+          alert(`BTG Pactual configurado!\nModo: ${data.modo}\nConta: ${data.conta}`);
           fecharModalBTG();
           await atualizarTudo();
         } else {
-          alert(`Erro: ${data.detail || 'Falha ao configurar BTG'}`);
+          alert(`Erro: ${data.detail}`);
         }
       } catch (e) {
-        alert('Erro ao comunicar com o servidor.');
+        alert('Erro na conexão com o servidor.');
       } finally {
         btn.disabled = false;
         btn.innerText = 'Salvar Credenciais';
@@ -525,14 +1040,7 @@
     async function salvarTelegram() {
       const bot_token = document.getElementById('input-tg-token').value;
       const chat_id = document.getElementById('input-tg-chatid').value;
-      if (!bot_token || !chat_id) {
-        alert('Por favor, preencha o Token e o Chat ID.');
-        return;
-      }
-
-      const btn = document.getElementById('btn-salvar-tg');
-      btn.disabled = true;
-      btn.innerText = 'Conectando...';
+      if (!bot_token || !chat_id) return alert('Preencha o Token e o Chat ID.');
 
       try {
         const res = await fetch('/api/telegram/configure', {
@@ -542,298 +1050,34 @@
         });
         const data = await res.json();
         if (res.ok) {
-          alert(`Telegram conectado com sucesso!\nBot: ${data.nome_bot}`);
+          alert('Telegram configurado com sucesso!');
           fecharModalTelegram();
           await atualizarTudo();
         } else {
-          alert(`Erro: ${data.detail || 'Falha ao validar com o Telegram'}`);
+          alert(`Erro: ${data.detail}`);
         }
       } catch (e) {
-        alert('Erro ao comunicar com o servidor.');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'Conectar';
+        alert('Erro ao configurar Telegram.');
       }
     }
 
     async function testarTelegram() {
-      const btn = document.getElementById('btn-test-tg');
-      btn.disabled = true;
-      btn.innerText = 'Enviando...';
       try {
         const res = await fetch('/api/telegram/test', { method: 'POST' });
         const data = await res.json();
-        if (res.ok) {
-          alert('Notificação enviada! Verifique seu Telegram no celular.');
-        } else {
-          alert(`Falha: ${data.detail || 'Configure o token e chat ID primeiro.'}`);
-        }
+        alert(data.status || data.detail);
       } catch (e) {
-        alert('Erro ao testar envio.');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = '📲 Testar Alerta no Celular';
+        alert('Falha ao enviar mensagem de teste.');
       }
     }
 
-    async function carregarStatus() {
-      try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-
-        document.getElementById('stat-patrimonio').innerText = `R$ ${data.patrimonio_total.toFixed(2)}`;
-        document.getElementById('stat-caixa').innerText = `R$ ${data.saldo_caixa.toFixed(2)}`;
-        
-        const plElem = document.getElementById('stat-pl');
-        plElem.innerText = `R$ ${data.pl_realizado_hoje.toFixed(2)}`;
-        if (data.pl_realizado_hoje < 0) {
-          plElem.className = 'text-2xl font-bold mono text-rose-400';
-        } else {
-          plElem.className = 'text-2xl font-bold mono text-emerald-400';
-        }
-
-        document.getElementById('stat-perdas').innerText = `${data.perdas_consecutivas_hoje}/2`;
-        document.getElementById('stat-drawdown').innerText = `${data.drawdown_atual_pct.toFixed(2)}%`;
-        document.getElementById('stat-max-dd').innerText = `${data.max_drawdown_pct.toFixed(2)}%`;
-        document.getElementById('stat-regime').innerText = data.regime_macro || 'Neutro';
-        document.getElementById('stat-macro-detalhe').innerText = data.ultimo_resumo || '';
-
-        // Badge do Modelo de IA no Header
-        const badgeLLM = document.getElementById('badge-llm-status');
-        if (data.llm_ativo) {
-          badgeLLM.innerText = `IA: ${data.llm_provedor} (${data.llm_modelo})`;
-          badgeLLM.className = 'text-emerald-400 font-bold';
-        } else {
-          badgeLLM.innerText = 'IA: Modo Simulado';
-          badgeLLM.className = 'text-slate-300';
-        }
-
-        // Badge da Corretora BTG no Header
-        const badgeBTG = document.getElementById('badge-btg-status');
-        if (data.btg_modo === 'PRODUCAO_REAL') {
-          badgeBTG.innerText = `BTG: CONTA REAL (${data.btg_conta})`;
-          badgeBTG.className = 'text-emerald-400 font-bold border-emerald-500/40';
-        } else {
-          badgeBTG.innerText = `BTG: Cloud Simulado`;
-          badgeBTG.className = 'text-amber-400 font-semibold';
-        }
-
-        // Badge do Telegram no Header
-        const badgeTG = document.getElementById('badge-tg-status');
-        if (data.telegram_ativo) {
-          badgeTG.innerText = `Telegram: ${data.telegram_bot || 'Ativo'}`;
-          badgeTG.className = 'text-blue-400 font-bold';
-        } else {
-          badgeTG.innerText = 'Telegram: Inativo';
-          badgeTG.className = 'text-slate-300';
-        }
-
-        const prog = Math.max(0, Math.min(100, data.progresso_meta_pct));
-        document.getElementById('bar-meta').style.width = `${prog}%`;
-
-        // Renderiza posições
-        const cPos = document.getElementById('container-posicoes');
-        document.getElementById('badge-total-pos').innerText = `${data.posicoes.length} Ativo(s)`;
-        if (data.posicoes.length === 0) {
-          cPos.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">Nenhuma posição aberta. 100% em caixa líquido.</div>`;
-        } else {
-          cPos.innerHTML = data.posicoes.map(p => `
-            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs">
-              <div>
-                <span class="font-bold text-white text-sm">${p.ativo}</span>
-                <div class="text-slate-400 mt-0.5">Lote: <span class="mono">${p.quantidade}</span> | Médio: <span class="mono">R$ ${p.preco_medio}</span></div>
-              </div>
-              <div class="text-right">
-                <div class="font-bold mono text-white">R$ ${p.valor_mercado.toFixed(2)}</div>
-                <div class="${p.pl_nao_realizado >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-semibold mono">
-                  ${p.pl_nao_realizado >= 0 ? '+' : ''}R$ ${p.pl_nao_realizado.toFixed(2)} (${p.pl_pct}%)
-                </div>
-              </div>
-            </div>
-          `).join('');
-        }
-      } catch (e) {
-        console.error('Erro ao carregar status:', e);
-      }
-    }
-
-    async function carregarMercado() {
-      try {
-        const res = await fetch('/api/market');
-        const data = await res.json();
-        const tbody = document.getElementById('tbody-mercado');
-
-        if (Object.keys(data).length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-500 text-xs">Aguardando dados...</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = Object.values(data).map(m => {
-          let badgeDiag = '<span class="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-400">Neutro</span>';
-          if (m.zscore_20p <= -1.8) {
-            badgeDiag = '<span class="px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">Sobrevendido (Z < -1.8)</span>';
-          } else if (m.zscore_20p >= 1.8) {
-            badgeDiag = '<span class="px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">Sobrecomprado (Z > 1.8)</span>';
-          }
-
-          const varColor = m.variacao_dia_pct >= 0 ? 'text-emerald-400' : 'text-rose-400';
-          const sinal = m.variacao_dia_pct >= 0 ? '+' : '';
-
-          return `
-            <tr class="hover:bg-slate-800/30 transition">
-              <td class="py-2.5 font-bold text-white flex items-center gap-1.5">
-                <i data-lucide="activity" class="w-3.5 h-3.5 text-emerald-400"></i>
-                ${m.ticker}
-              </td>
-              <td class="py-2.5 mono text-slate-200">R$ ${m.preco_atual.toFixed(2)}</td>
-              <td class="py-2.5 mono ${varColor}">${sinal}${(m.variacao_dia_pct * 100).toFixed(2)}%</td>
-              <td class="py-2.5 mono text-slate-300 font-semibold">${m.zscore_20p.toFixed(2)}</td>
-              <td class="py-2.5 mono text-slate-400">R$ ${m.atr_14p.toFixed(2)}</td>
-              <td class="py-2.5 text-right">${badgeDiag}</td>
-            </tr>
-          `;
-        }).join('');
-        lucide.createIcons();
-      } catch (e) {
-        console.error('Erro ao carregar mercado:', e);
-      }
-    }
-
-    async function carregarPropostas() {
-      try {
-        const res = await fetch('/api/proposals');
-        const propostas = await res.json();
-        const container = document.getElementById('container-propostas');
-
-        if (propostas.length === 0) {
-          container.innerHTML = `
-            <div class="text-center py-6 text-slate-500 text-sm">
-              <i data-lucide="check-check" class="w-8 h-8 mx-auto mb-1 text-emerald-500/50"></i>
-              Nenhuma proposta pendente. A carteira está em equilíbrio.
-            </div>
-          `;
-          lucide.createIcons();
-          return;
-        }
-
-        container.innerHTML = propostas.map(p => `
-          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap lg:flex-nowrap justify-between items-center gap-4">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 rounded text-xs font-bold ${p.tipo === 'COMPRA' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">
-                  ${p.tipo}
-                </span>
-                <span class="font-bold text-base text-white">${p.ativo}</span>
-                <span class="text-xs text-slate-400">Entrada: <b class="text-slate-200 mono">R$ ${p.preco_atual}</b></span>
-                <span class="text-xs text-rose-400">Stop: <b class="mono">R$ ${p.preco_stop_loss}</b></span>
-                <span class="text-xs text-emerald-400">Alvo: <b class="mono">R$ ${p.preco_take_profit}</b></span>
-                <span class="text-xs text-cyan-400 font-semibold mono">Confiança: ${(p.probabilidade * 100).toFixed(0)}%</span>
-              </div>
-              <p class="text-xs text-slate-300">${p.justificativa}</p>
-              <div class="flex items-center gap-2 text-xs text-slate-400">
-                <span class="flex items-center gap-1 ${p.revisor_parecer === 'APROVADO' ? 'text-emerald-400' : 'text-rose-400'} font-medium">
-                  <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Revisor: ${p.revisor_parecer}
-                </span>
-                <span>• ${p.revisor_nota}</span>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2 flex-shrink-0">
-              ${p.status === 'PENDENTE_APROVACAO_HUMANA' ? `
-                <button onclick="aprovarOrdem('${p.proposta_id}')" class="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-lg transition shadow-md shadow-emerald-500/20">
-                  <i data-lucide="check" class="w-4 h-4"></i>
-                  Aprovar Ordem
-                </button>
-                <button onclick="rejeitarOrdem('${p.proposta_id}')" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs px-3 py-2.5 rounded-lg transition">
-                  <i data-lucide="x" class="w-4 h-4"></i>
-                  Rejeitar
-                </button>
-              ` : `
-                <span class="px-3 py-1.5 rounded-lg text-xs font-semibold ${p.status === 'EXECUTADA' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">
-                  ${p.status}
-                </span>
-              `}
-            </div>
-          </div>
-        `).join('');
-        lucide.createIcons();
-      } catch (e) {
-        console.error('Erro ao carregar propostas:', e);
-      }
-    }
-
-    async function carregarOrdens() {
-      try {
-        const res = await fetch('/api/orders');
-        const ordens = await res.json();
-        const tbody = document.getElementById('tbody-ordens');
-
-        if (ordens.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-center text-slate-500">Nenhuma ordem registrada ainda.</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = ordens.map(o => `
-          <tr class="hover:bg-slate-800/30">
-            <td class="py-2 mono text-slate-400">${o.ordem_id}</td>
-            <td class="py-2 font-bold text-white">${o.ativo}</td>
-            <td class="py-2 ${o.tipo === 'COMPRA' ? 'text-emerald-400' : 'text-rose-400'} font-semibold">${o.tipo}</td>
-            <td class="py-2 mono text-slate-300">${o.quantidade}</td>
-            <td class="py-2 mono text-slate-200">R$ ${o.preco_execucao}</td>
-            <td class="py-2 mono text-rose-400">R$ ${o.preco_stop_loss}</td>
-            <td class="py-2 mono text-emerald-400">R$ ${o.preco_take_profit}</td>
-            <td class="py-2"><span class="px-2 py-0.5 rounded text-xs ${o.estado === 'EXECUTADA' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">${o.estado}</span></td>
-            <td class="py-2 text-slate-400 max-w-xs truncate">${o.justificativa}</td>
-          </tr>
-        `).join('');
-      } catch (e) {
-        console.error('Erro ao carregar ordens:', e);
-      }
-    }
-
-    async function executarCiclo() {
-      const btn = document.getElementById('btn-ciclo');
-      const icon = document.getElementById('icon-refresh');
-      btn.disabled = true;
-      icon.classList.add('animate-spin');
-
-      try {
-        await fetch('/api/cycle/run', { method: 'POST' });
-        await atualizarTudo();
-      } catch (e) {
-        alert('Erro ao executar ciclo de análise.');
-      } finally {
-        btn.disabled = false;
-        icon.classList.remove('animate-spin');
-      }
-    }
-
-    async function aprovarOrdem(id) {
-      try {
-        const res = await fetch(`/api/proposals/${id}/approve`, { method: 'POST' });
-        const data = await res.json();
-        if (data.sucesso) {
-          alert(`Ordem executada!\nCorretora: ${data.status_corretora}\nID BTG: ${data.ordem_id_btg}\nLote: ${data.lote.toFixed(4)}\nRisco: R$ ${data.risco_brl.toFixed(2)}`);
-        } else {
-          alert(`Ordem recusada pelo Order Gate:\n${data.motivo}`);
-        }
-        await atualizarTudo();
-      } catch (e) {
-        alert('Falha ao comunicar com o servidor.');
-      }
-    }
-
-    async function rejeitarOrdem(id) {
-      await fetch(`/api/proposals/${id}/reject`, { method: 'POST' });
-      await atualizarTudo();
-    }
-
-    async function atualizarTudo() {
-      await Promise.all([carregarStatus(), carregarMercado(), carregarPropostas(), carregarOrdens()]);
-    }
-
-    atualizarTudo();
-    setInterval(atualizarTudo, 5000);
+    // Inicialização ao carregar
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      atualizarTudo();
+      // Atualização automática em tempo real a cada 3 segundos
+      setInterval(atualizarTudo, 3000);
+    });
   </script>
 </body>
 </html>

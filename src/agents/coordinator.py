@@ -80,7 +80,7 @@ class CoordenadorCiclo:
         regime = "Reflação / Cautela Cambial" if z_usd > 1.5 else "Goldilocks / Oportunidade"
 
         for ticker, metricas in snapshot.items():
-            if ticker == "USDBRL=X":
+            if ticker in ["USDBRL=X", "^VIX"]:
                 continue
 
             zscore = metricas.get("zscore_20p", 0.0)

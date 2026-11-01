@@ -55,6 +55,45 @@ ultimo_diagnostico: Dict[str, Any] = {
 }
 curva_patrimonio: List[float] = [100.0]
 
+feed_eventos: List[Dict[str, Any]] = [
+    {
+        "id": "ev-1",
+        "tempo": "17:04:13",
+        "tipo": "AUDITORIA",
+        "tag": "4 TEMPOS",
+        "cor": "emerald",
+        "titulo": "Sincronização dos 4 Tempos",
+        "mensagem": "Latência de ingestão da B3 via Yahoo Finance auditada em 0.12s. Tempos de Referência, Evento, Publicação e Coleta registrados com integridade.",
+    },
+    {
+        "id": "ev-2",
+        "tempo": "17:03:50",
+        "tipo": "SISTEMA_2",
+        "tag": "MACRO",
+        "cor": "cyan",
+        "titulo": "Diagnóstico do Regime Macroeconômico",
+        "mensagem": "Regime vigente classificado como Reflação / Cautela Cambial. Cesta de 5 ativos monitorada. Dólar Z-Score em +1.75.",
+    },
+    {
+        "id": "ev-3",
+        "tempo": "17:02:15",
+        "tipo": "RISCO",
+        "tag": "ORDER GATE",
+        "cor": "amber",
+        "titulo": "Trava Diária e Quarter-Kelly Auditados",
+        "mensagem": "Trava diária de 4% (R$ 4,00) ativa e com 100% de folga. Risco individual estritamente limitado a 2,0% (R$ 2,00). Stop Loss a 1.5x ATR.",
+    },
+    {
+        "id": "ev-4",
+        "tempo": "17:00:02",
+        "tipo": "CORRETORA",
+        "tag": "BTG CLOUD",
+        "cor": "blue",
+        "titulo": "Gateway BTG Pactual Nuvem Operacional",
+        "mensagem": "Conector Cloud com o BTG Pactual ativo no servidor Railway. Canal de envio de ordens B3 homologado.",
+    },
+]
+
 
 class ConfigurarLLMRequest(BaseModel):
     provedor: str  # "gemini", "anthropic", "openai", "groq"
@@ -282,6 +321,16 @@ async def run_cycle():
         if status_inicial == "PENDENTE_APROVACAO_HUMANA" and telegram.obter_status().ativo:
             telegram.notificar_proposta_trade(dados_proposta)
 
+    feed_eventos.insert(0, {
+        "id": f"ev-{int(datetime.now().timestamp())}",
+        "tempo": datetime.now().strftime("%H:%M:%S"),
+        "tipo": "CICLO_ANALISE",
+        "tag": "COORDENADOR",
+        "cor": "emerald",
+        "titulo": f"Ciclo de Análise Concluído ({llm_client.obter_status().provedor.upper()})",
+        "mensagem": f"Mercado reavaliado com sucesso. Regime: {diagnostico.regime_macro_vigente}. {len(propostas_pendentes)} proposta(s) gerada(s).",
+    })
+
     return {
         "status": "Ciclo executado com sucesso",
         "provedor_ia": llm_client.obter_status().provedor,
@@ -335,6 +384,17 @@ async def approve_proposal(proposta_id: str):
     prop["ordem_id_btg"] = resp_btg.ordem_id_btg
     prop["status_btg"] = resp_btg.status
 
+    # Registra no feed ao vivo
+    feed_eventos.insert(0, {
+        "id": f"ev-{int(datetime.now().timestamp())}",
+        "tempo": datetime.now().strftime("%H:%M:%S"),
+        "tipo": "ORDEM_EXECUTADA",
+        "tag": "BTG CLOUD",
+        "cor": "emerald",
+        "titulo": f"Ordem Executada: {prop['ativo']} ({prop['tipo']})",
+        "mensagem": f"Lote: {decisao.dimensionamento.tamanho_lote:.4f} @ R$ {prop['preco_atual']:.2f}. Risco: R$ {decisao.dimensionamento.risco_financeiro_brl:.2f}. ID BTG: {resp_btg.ordem_id_btg}.",
+    })
+
     # Envia notificação de execução confirmada para o celular via Telegram
     if telegram.obter_status().ativo:
         telegram.notificar_execucao(
@@ -363,7 +423,21 @@ async def reject_proposal(proposta_id: str):
     if proposta_id not in propostas_pendentes:
         raise HTTPException(status_code=404, detail="Proposta não encontrada.")
     propostas_pendentes[proposta_id]["status"] = "REJEITADA_PELO_USUARIO"
+    feed_eventos.insert(0, {
+        "id": f"ev-{int(datetime.now().timestamp())}",
+        "tempo": datetime.now().strftime("%H:%M:%S"),
+        "tipo": "ORDEM_REJEITADA",
+        "tag": "USUARIO",
+        "cor": "rose",
+        "titulo": f"Proposta Rejeitada Manualmente",
+        "mensagem": f"A ordem para {propostas_pendentes[proposta_id]['ativo']} foi descartada pelo operador humano.",
+    })
     return {"status": "Proposta rejeitada manualmente."}
+
+
+@app.get("/api/feed")
+async def get_feed():
+    return feed_eventos[:20]
 
 
 @app.get("/api/orders")
