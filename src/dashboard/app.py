@@ -7,6 +7,7 @@ Permite visualização em tempo real de:
 - Propostas do Analista e parecer do Revisor Independente
 - Botão "Sugestão + 1 Clique" para aprovação humana e execução pelo Order Gate
 - Configuração dinâmica de chaves de IA (Gemini, Claude, OpenAI)
+- Notificações de trades em tempo real no Telegram com alertas instantâneos
 - Histórico auditável de ordens
 """
 
@@ -26,13 +27,15 @@ from src.execution.order_gate import OrderGate, PropostaTrade
 from src.agents.contracts import ParecerRevisao, ViesDirecional
 from src.agents.llm_client import LLMClient
 from src.agents.coordinator import CoordenadorCiclo
+from src.agents.telegram_notifier import TelegramNotifier
 from src.finance.math_engine import calcular_drawdown_maximo
 
 app = FastAPI(title="Mesa Proprietária Multiagente - Dashboard")
 
-# Instâncias persistentes da carteira, OrderGate e LLM
+# Instâncias persistentes da carteira, OrderGate, LLM e Telegram
 CONFIG_PATH = os.getenv("CONFIG_PATH", "config/risk_limits.json")
 llm_client = LLMClient()
+telegram = TelegramNotifier()
 carteira = CarteiraSimulada(saldo_inicial_brl=100.0)
 gate = OrderGate(caminho_config=CONFIG_PATH, carteira=carteira)
 coletor = ColetorMercado()
@@ -54,6 +57,11 @@ class ConfigurarLLMRequest(BaseModel):
     provedor: str  # "gemini", "anthropic", "openai", "groq"
     chave: str
     modelo: Optional[str] = None
+
+
+class ConfigurarTelegramRequest(BaseModel):
+    bot_token: str
+    chat_id: str
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -87,6 +95,7 @@ async def get_status():
         )
 
     info_llm = llm_client.obter_status()
+    info_tg = telegram.obter_status()
 
     return {
         "capital_inicial": carteira.capital_inicial,
@@ -106,6 +115,9 @@ async def get_status():
         "llm_provedor": info_llm.provedor,
         "llm_modelo": info_llm.modelo,
         "llm_detalhes": info_llm.detalhes,
+        "telegram_ativo": info_tg.ativo,
+        "telegram_bot": info_tg.nome_bot,
+        "telegram_detalhes": info_tg.detalhes,
         "timestamp_atual": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -133,6 +145,40 @@ async def configure_llm(req: ConfigurarLLMRequest):
         "modelo": status.modelo,
         "detalhes": status.detalhes,
     }
+
+
+@app.get("/api/telegram/status")
+async def get_telegram_status():
+    status = telegram.obter_status()
+    return {
+        "ativo": status.ativo,
+        "nome_bot": status.nome_bot,
+        "detalhes": status.detalhes,
+    }
+
+
+@app.post("/api/telegram/configure")
+async def configure_telegram(req: ConfigurarTelegramRequest):
+    if not req.bot_token or not req.chat_id:
+        raise HTTPException(status_code=400, detail="Token e Chat ID são obrigatórios.")
+    telegram.reconfigurar(req.bot_token, req.chat_id)
+    status = telegram.obter_status()
+    if not status.ativo:
+        raise HTTPException(status_code=400, detail=f"Falha ao validar com o Telegram: {status.detalhes}")
+    return {
+        "status": "Telegram conectado com sucesso!",
+        "nome_bot": status.nome_bot,
+    }
+
+
+@app.post("/api/telegram/test")
+async def test_telegram():
+    if not telegram.bot_token or not telegram.chat_id:
+        raise HTTPException(status_code=400, detail="Telegram não configurado.")
+    sucesso = telegram.enviar_mensagem("🚀 *Mesa Multiagente:* Conexão com Telegram validada com sucesso! Alertas ativos.")
+    if not sucesso:
+        raise HTTPException(status_code=500, detail="Falha ao enviar mensagem de teste.")
+    return {"status": "Mensagem enviada com sucesso ao seu celular!"}
 
 
 @app.get("/api/market")
@@ -178,7 +224,7 @@ async def run_cycle():
         prop_id = f"PROP-{prop.ativo}-{int(datetime.now().timestamp())}"
         status_inicial = "PENDENTE_APROVACAO_HUMANA" if revisao.parecer == ParecerRevisao.APROVADO else "REJEITADA_NA_REVISAO"
 
-        propostas_pendentes[prop_id] = {
+        dados_proposta = {
             "proposta_id": prop_id,
             "ativo": prop.ativo,
             "tipo": prop.tipo_operacao,
@@ -193,6 +239,11 @@ async def run_cycle():
             "revisor_contrapontos": revisao.contrapontos_identificados,
             "status": status_inicial,
         }
+        propostas_pendentes[prop_id] = dados_proposta
+
+        # Notifica o operador no Telegram imediatamente se aprovada pelo Revisor
+        if status_inicial == "PENDENTE_APROVACAO_HUMANA" and telegram.obter_status().ativo:
+            telegram.notificar_proposta_trade(dados_proposta)
 
     return {
         "status": "Ciclo executado com sucesso",
@@ -234,6 +285,17 @@ async def approve_proposal(proposta_id: str):
     prop["status"] = "EXECUTADA"
     prop["lote_executado"] = decisao.dimensionamento.tamanho_lote
     prop["risco_brl"] = decisao.dimensionamento.risco_financeiro_brl
+
+    # Envia notificação de execução confirmada para o celular via Telegram
+    if telegram.obter_status().ativo:
+        telegram.notificar_execucao(
+            ativo=prop["ativo"],
+            tipo=prop["tipo"],
+            lote=decisao.dimensionamento.tamanho_lote,
+            preco=prop["preco_atual"],
+            risco_brl=decisao.dimensionamento.risco_financeiro_brl,
+            saldo_restante=carteira.saldo_caixa,
+        )
 
     return {
         "sucesso": True,
