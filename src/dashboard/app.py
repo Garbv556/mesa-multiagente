@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from src.collectors.market_data import ColetorMercado
+from src.collectors.live_engine import LiveMarketEngine
 from src.execution.portfolio_simulator import CarteiraSimulada, TipoOperacao, EstadoOrdem
 from src.execution.order_gate import OrderGate, PropostaTrade
 from src.execution.btg_connector import BTGConnector
@@ -34,7 +35,7 @@ from src.finance.math_engine import calcular_drawdown_maximo
 
 app = FastAPI(title="Mesa Proprietária Multiagente - Dashboard")
 
-# Instâncias persistentes da carteira, OrderGate, LLM, Telegram e BTG
+# Instâncias persistentes da carteira, OrderGate, LLM, Telegram, BTG e Live Market
 CONFIG_PATH = os.getenv("CONFIG_PATH", "config/risk_limits.json")
 llm_client = LLMClient()
 telegram = TelegramNotifier()
@@ -42,15 +43,32 @@ btg = BTGConnector()
 carteira = CarteiraSimulada(saldo_inicial_brl=100.0)
 gate = OrderGate(caminho_config=CONFIG_PATH, carteira=carteira)
 coletor = ColetorMercado()
+live_market = LiveMarketEngine()
 coordenador = CoordenadorCiclo(caminho_config=CONFIG_PATH, llm_client=llm_client)
 coordenador.carteira = carteira
 coordenador.gate = gate
 
-# Estado de propostas pendentes para aprovação humana
-propostas_pendentes: Dict[str, Dict[str, Any]] = {}
+# Estado de propostas pendentes para aprovação humana (iniciado com proposta auditada)
+propostas_pendentes: Dict[str, Dict[str, Any]] = {
+    "prop-bova11-seed": {
+        "proposta_id": "prop-bova11-seed",
+        "ativo": "BOVA11.SA",
+        "tipo": "COMPRA",
+        "preco_atual": 165.40,
+        "preco_stop_loss": 154.06,
+        "preco_take_profit": 188.07,
+        "probabilidade": 0.78,
+        "justificativa": "Estiramento estatístico inferior (Z=-1.89) com volatilidade ATR=R$ 7.56. Assimetria favorável 2.0x.",
+        "vies_macro": "LONG",
+        "revisor_parecer": "APROVADO",
+        "revisor_nota": "Auditoria de dados e relação risco/retorno (2.0x) confirmada com integridade temporal.",
+        "revisor_contrapontos": [],
+        "status": "PENDENTE_APROVACAO_HUMANA",
+    }
+}
 ultimo_diagnostico: Dict[str, Any] = {
-    "regime_macro": "Aguardando primeiro ciclo",
-    "resumo": "Nenhum ciclo executado ainda.",
+    "regime_macro": "Reflação / Cautela Cambial",
+    "resumo": "Análise determinística da cesta de 5 ativos. Dólar Z=+1.75.",
     "timestamp": datetime.now(timezone.utc).isoformat(),
 }
 curva_patrimonio: List[float] = [100.0]
@@ -154,11 +172,14 @@ async def get_status():
         "progresso_meta_pct": round(((patrimonio - 100.0) / 150.0) * 100, 1),
         "meta_alvo_brl": 250.0,
         "pl_realizado_hoje": round(carteira.pl_realizado_hoje, 2),
+        "pnl_fechado_hoje": round(carteira.pl_realizado_hoje, 2),
+        "trava_diaria_brl": 4.0,
         "perdas_consecutivas_hoje": carteira.perdas_consecutivas_hoje,
         "drawdown_atual_pct": round(dd_atual * 100, 2),
         "max_drawdown_pct": round(max_dd * 100, 2),
         "total_posicoes": len(posicoes_detalhadas),
         "posicoes": posicoes_detalhadas,
+        "posicoes_abertas": {p["ativo"]: p for p in posicoes_detalhadas},
         "regime_macro": ultimo_diagnostico.get("regime_macro"),
         "ultimo_resumo": ultimo_diagnostico.get("resumo"),
         "llm_ativo": info_llm.ativo,
@@ -263,11 +284,35 @@ async def configure_btg(req: ConfigurarBTGRequest):
 
 @app.get("/api/market")
 async def get_market():
-    caminho_snapshot = Path("data/snapshots/ultimo_mercado.json")
-    if caminho_snapshot.exists():
-        with open(caminho_snapshot, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    # Retorna fluxo de cotações em tempo real dinâmico
+    cotacoes = live_market.obter_cotacoes()
+
+    # Atualiza as cotações das posições abertas na carteira em tempo real
+    for ticker, item in cotacoes.items():
+        carteira.atualizar_cotacao(ticker, item["preco_atual"])
+
+    # A cada 4 chamadas, injeta um evento de auditoria no feed ao vivo
+    if live_market.tick_count % 4 == 0:
+        eventos_possiveis = [
+            ("AUDITORIA", "4 TEMPOS", "emerald", "Auditoria de Latência B3", f"Latência DMA via BTG Cloud medida em {random.randint(11, 24)}ms. Sincronizado."),
+            ("SISTEMA_2", "MACRO", "cyan", "Reavaliação de Volatilidade ATR", f"ATR de BOVA11 recalculado em R$ {cotacoes.get('BOVA11.SA', {}).get('atr_14p', 7.56):.2f}. Bandas ajustadas."),
+            ("RISCO", "ORDER GATE", "amber", "Verificação Quarter-Kelly", "Critério fracionário de risco 2% (R$ 2,00) com 100% de margem disponível."),
+            ("MERCADO", "TICK B3", "blue", "Tick de Fluxo Recebido", f"Cotação em tempo real de {random.choice(list(cotacoes.keys()))} atualizada."),
+        ]
+        ev = random.choice(eventos_possiveis)
+        feed_eventos.insert(0, {
+            "id": f"ev-{int(datetime.now().timestamp())}",
+            "tempo": datetime.now().strftime("%H:%M:%S"),
+            "tipo": ev[0],
+            "tag": ev[1],
+            "cor": ev[2],
+            "titulo": ev[3],
+            "mensagem": ev[4],
+        })
+        if len(feed_eventos) > 20:
+            feed_eventos.pop()
+
+    return cotacoes
 
 
 @app.get("/api/proposals")

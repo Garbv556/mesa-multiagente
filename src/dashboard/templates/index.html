@@ -41,18 +41,30 @@
     
     /* Animação suave de piscada em tempo real quando o preço varia */
     .flash-up {
-      animation: flashGreenAnim 1.2s ease-out;
+      animation: flashGreenAnim 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     .flash-down {
-      animation: flashRedAnim 1.2s ease-out;
+      animation: flashRedAnim 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     @keyframes flashGreenAnim {
-      0% { background-color: rgba(129, 201, 149, 0.35); }
-      100% { background-color: transparent; }
+      0% {
+        background-color: rgba(129, 201, 149, 0.4);
+        box-shadow: 0 0 14px rgba(129, 201, 149, 0.3);
+      }
+      100% {
+        background-color: #1e1f20;
+        box-shadow: none;
+      }
     }
     @keyframes flashRedAnim {
-      0% { background-color: rgba(242, 139, 130, 0.35); }
-      100% { background-color: transparent; }
+      0% {
+        background-color: rgba(242, 139, 130, 0.4);
+        box-shadow: 0 0 14px rgba(242, 139, 130, 0.3);
+      }
+      100% {
+        background-color: #1e1f20;
+        box-shadow: none;
+      }
     }
 
     /* Scrollbar personalizada dark */
@@ -579,7 +591,7 @@
         const isPositive = item.variacao_dia_pct >= 0;
         const sinal = isPositive ? '+' : '';
         const corTexto = isPositive ? 'text-[#81c995]' : 'text-[#f28b82]';
-        const iconeSeta = isPositive ? '🠁' : '🠃';
+        const iconeSeta = isPositive ? '▲' : '▼';
         const varPctFormatada = `${sinal}${(item.variacao_dia_pct * 100).toFixed(2)}%`;
         const varNominalFormatada = item.variacao_nominal !== undefined
           ? `(${sinal}${item.variacao_nominal.toFixed(2)})`
@@ -635,7 +647,7 @@
         const isPositive = item.variacao_dia_pct >= 0;
         const sinal = isPositive ? '+' : '';
         const bgPill = isPositive ? 'bg-[#0f5132]/60 text-[#81c995] border-[#81c995]/30' : 'bg-[#5c1d1d]/60 text-[#f28b82] border-[#f28b82]/30';
-        const iconeSeta = isPositive ? '🠁' : '🠃';
+        const iconeSeta = isPositive ? '▲' : '▼';
         const varPct = `${sinal}${(item.variacao_dia_pct * 100).toFixed(2)}%`;
         const miniSparkline = gerarMiniSparklineSVG(item.sparkline, item.variacao_dia_pct);
 
@@ -767,21 +779,30 @@
         const resStatus = await fetch('/api/status');
         if (resStatus.ok) {
           const s = await resStatus.json();
-          document.getElementById('stat-patrimonio').innerText = `R$ ${s.patrimonio_total.toFixed(2)}`;
-          document.getElementById('stat-caixa').innerText = `R$ ${s.saldo_caixa.toFixed(2)}`;
-          document.getElementById('stat-pnl').innerText = `R$ ${s.pnl_fechado_hoje.toFixed(2)}`;
-          document.getElementById('stat-trava').innerText = `-R$ ${s.trava_diaria_brl.toFixed(2)}`;
+          const patrimonio = s.patrimonio_total !== undefined ? s.patrimonio_total : 100.0;
+          const caixa = s.saldo_caixa !== undefined ? s.saldo_caixa : 100.0;
+          const pnl = s.pl_realizado_hoje !== undefined ? s.pl_realizado_hoje : (s.pnl_fechado_hoje || 0.0);
+          const trava = s.trava_diaria_brl !== undefined ? s.trava_diaria_brl : 4.0;
+
+          document.getElementById('stat-patrimonio').innerText = `R$ ${patrimonio.toFixed(2)}`;
+          document.getElementById('stat-caixa').innerText = `R$ ${caixa.toFixed(2)}`;
+          document.getElementById('stat-pnl').innerText = `R$ ${pnl.toFixed(2)}`;
+          document.getElementById('stat-trava').innerText = `-R$ ${trava.toFixed(2)}`;
 
           // Barra de progresso para R$ 250
-          const pct = Math.min(100, Math.max(0, ((s.patrimonio_total - 100) / 150) * 100));
+          const pct = Math.min(100, Math.max(0, ((patrimonio - 100) / 150) * 100));
           document.getElementById('progress-meta').style.width = `${Math.max(10, pct)}%`;
 
           // Badges do Header
           const badgeLLM = document.getElementById('badge-llm-status');
           if (badgeLLM) {
-            badgeLLM.innerText = s.llm_provedor && s.llm_provedor !== 'nenhum'
-              ? `IA: ${s.llm_provedor.toUpperCase()} (${s.llm_modelo})`
-              : 'IA: Sistema 2 Quant';
+            if (s.llm_ativo && s.llm_provedor && s.llm_provedor !== 'SIMULADOR_LOCAL' && s.llm_provedor !== 'nenhum') {
+              badgeLLM.innerText = `IA: ${s.llm_provedor.toUpperCase()} (${s.llm_modelo || '1.5 Flash'})`;
+              badgeLLM.className = 'text-cyan-400 font-bold';
+            } else {
+              badgeLLM.innerText = 'IA: Sistema 2 Quant';
+              badgeLLM.className = 'text-slate-300 font-medium';
+            }
           }
 
           const badgeBTG = document.getElementById('badge-btg-status');
@@ -1075,8 +1096,8 @@
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       atualizarTudo();
-      // Atualização automática em tempo real a cada 3 segundos
-      setInterval(atualizarTudo, 3000);
+      // Atualização automática em tempo real a cada 1.5 segundos
+      setInterval(atualizarTudo, 1500);
     });
   </script>
 </body>
