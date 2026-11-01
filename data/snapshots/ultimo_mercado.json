@@ -1,0 +1,54 @@
+{
+  "BOVA11.SA": {
+    "ticker": "BOVA11.SA",
+    "preco_atual": 165.39999389648438,
+    "preco_fechamento_anterior": 166.50999450683594,
+    "variacao_dia_pct": -0.006666270175788136,
+    "zscore_20p": -1.8925849859082449,
+    "atr_14p": 7.557141985212054,
+    "volatilidade_20p": 0.03930852949533059,
+    "tempo_referencia": "2026-10-30",
+    "tempo_evento": "2026-10-30T17:00:00Z",
+    "tempo_publicacao": "2026-10-30T18:00:00Z",
+    "tempo_coleta": "2026-11-01T16:36:00.356871+00:00"
+  },
+  "GOLD11.SA": {
+    "ticker": "GOLD11.SA",
+    "preco_atual": 21.889999389648438,
+    "preco_fechamento_anterior": 22.5,
+    "variacao_dia_pct": -0.027111138237847276,
+    "zscore_20p": 0.225982646135608,
+    "atr_14p": 0.505000250680106,
+    "volatilidade_20p": 0.02588806518589522,
+    "tempo_referencia": "2026-10-30",
+    "tempo_evento": "2026-10-30T17:00:00Z",
+    "tempo_publicacao": "2026-10-30T18:00:00Z",
+    "tempo_coleta": "2026-11-01T16:36:01.560185+00:00"
+  },
+  "IVVB11.SA": {
+    "ticker": "IVVB11.SA",
+    "preco_atual": 466.5,
+    "preco_fechamento_anterior": 468.0,
+    "variacao_dia_pct": -0.0032051282051281937,
+    "zscore_20p": 1.5206749148626741,
+    "atr_14p": 9.47857666015625,
+    "volatilidade_20p": 0.02365617862707253,
+    "tempo_referencia": "2026-10-30",
+    "tempo_evento": "2026-10-30T17:00:00Z",
+    "tempo_publicacao": "2026-10-30T18:00:00Z",
+    "tempo_coleta": "2026-11-01T16:36:02.112755+00:00"
+  },
+  "USDBRL=X": {
+    "ticker": "USDBRL=X",
+    "preco_atual": 5.438899993896484,
+    "preco_fechamento_anterior": 5.384799957275391,
+    "variacao_dia_pct": 0.010046805276024973,
+    "zscore_20p": 2.02002823897949,
+    "atr_14p": 0.11431533949715751,
+    "volatilidade_20p": 0.020289576866462215,
+    "tempo_referencia": "2026-11-01",
+    "tempo_evento": "2026-11-01T17:00:00Z",
+    "tempo_publicacao": "2026-11-01T18:00:00Z",
+    "tempo_coleta": "2026-11-01T16:36:02.700861+00:00"
+  }
+}

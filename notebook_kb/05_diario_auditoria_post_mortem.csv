@@ -1,0 +1,1 @@
+trade_id,timestamp_utc,ativo,tipo_ordem,preco_entrada,preco_stop_loss,preco_take_profit,quantidade,probabilidade_jev,vies_macro,resultado_financeiro_brl,motivo_saida,aprendizado_recalibragem

@@ -1,0 +1,37 @@
+{
+  "versao": "1.0.0",
+  "data_revisao": "2026-11-01",
+  "setups": [
+    {
+      "id": "SETUP_ZSCORE_MEAN_REVERSION",
+      "nome": "Retorno a Media por Estiramento Estatistico",
+      "classes_aplicaveis": ["Acoes", "ETFs_Indices", "Cambio"],
+      "condicoes_entrada": {
+        "zscore_limiar_superior": 2.0,
+        "zscore_limiar_inferior": -2.0,
+        "rsi_periodos": 14,
+        "condicao_long": "zscore < -2.0 AND rsi < 30 AND tendencia_macro_alinhada",
+        "condicao_short": "zscore > 2.0 AND rsi > 70 AND tendencia_macro_alinhada"
+      },
+      "gestao_saida": {
+        "multiplicador_atr_stop": 1.5,
+        "razao_retorno_risco_minima": 2.0,
+        "alvo_saida": "Retorno ao zscore = 0 (media movel de 20 periodos)"
+      }
+    },
+    {
+      "id": "SETUP_BREAKOUT_VOLATILIDADE",
+      "nome": "Rompimento de Volatilidade e Tendencia Forte",
+      "classes_aplicaveis": ["Commodities", "Ouro", "Dolar"],
+      "condicoes_entrada": {
+        "condicao": "Preco rompe maxima/minima de 20 periodos com volume > 1.5x media e zscore > 1.5",
+        "vies_macro_obrigatorio": "Favoravel ao regime vigente"
+      },
+      "gestao_saida": {
+        "multiplicador_atr_stop": 2.0,
+        "trailing_stop_atr": 1.5,
+        "razao_retorno_risco_minima": 2.5
+      }
+    }
+  ]
+}

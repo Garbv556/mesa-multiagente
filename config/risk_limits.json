@@ -1,0 +1,30 @@
+{
+  "versao_regras": "1.0.0",
+  "data_atualizacao": "2026-11-01",
+  "capital_inicial_brl": 100.0,
+  "fase": "Fase 1 - Laboratorio e Semente",
+  "parametros_capital": {
+    "moeda_base": "BRL",
+    "capital_alvo_brl": 250.0,
+    "retorno_liquido_alvo_pct": 1.50
+  },
+  "travas_risco_operacional": {
+    "risco_max_por_trade_pct": 0.02,
+    "perda_max_diaria_pct": 0.04,
+    "trava_perdas_consecutivas": 2,
+    "confianca_minima_execucao": 0.75,
+    "alavancagem_permitida": 0.0,
+    "spread_bid_ask_max_pct": 0.0015,
+    "criterio_kelly_fracionado": 0.25,
+    "multiplicador_atr_stop": 1.5
+  },
+  "orcamento_tecnologia": {
+    "teto_diario_api_usd": 0.0,
+    "camadas_gratuitas_obrigatorias": true
+  },
+  "restricoes_horario": {
+    "bloqueio_noticias_minutos_antes": 15,
+    "bloqueio_noticias_minutos_depois": 15,
+    "eventos_bloqueio": ["FOMC", "COPOM", "PAYROLL", "CPI_US", "IPCA"]
+  }
+}
