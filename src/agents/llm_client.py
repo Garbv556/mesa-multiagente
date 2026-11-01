@@ -48,7 +48,13 @@ class LLMClient:
             modelo = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
             return "openai", openai_key, modelo
 
-        # 4. Groq
+        # 4. xAI Grok
+        grok_key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
+        if grok_key:
+            modelo = os.environ.get("GROK_MODEL", "grok-2-latest")
+            return "grok", grok_key, modelo
+
+        # 5. Groq
         groq_key = os.environ.get("GROQ_API_KEY")
         if groq_key:
             modelo = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
@@ -78,6 +84,11 @@ class LLMClient:
             os.environ["ANTHROPIC_API_KEY"] = chave
         elif provedor.lower() == "openai":
             os.environ["OPENAI_API_KEY"] = chave
+        elif provedor.lower() in ("grok", "xai"):
+            os.environ["GROK_API_KEY"] = chave
+            os.environ["XAI_API_KEY"] = chave
+            if modelo:
+                os.environ["GROK_MODEL"] = modelo
         elif provedor.lower() == "groq":
             os.environ["GROQ_API_KEY"] = chave
         self.provedor_ativo, self.chave_api, self.modelo_padrao = self._detectar_provedor()
@@ -94,7 +105,7 @@ class LLMClient:
                 return self._chamar_gemini(prompt_sistema, prompt_usuario)
             elif self.provedor_ativo == "anthropic":
                 return self._chamar_anthropic(prompt_sistema, prompt_usuario)
-            elif self.provedor_ativo in ("openai", "groq"):
+            elif self.provedor_ativo in ("openai", "groq", "grok"):
                 return self._chamar_openai_compativel(prompt_sistema, prompt_usuario)
         except Exception as e:
             print(f"[Aviso LLM] Falha na chamada da API ({self.provedor_ativo}): {e}")
@@ -137,7 +148,13 @@ class LLMClient:
         return self._extrair_json_de_texto(texto)
 
     def _chamar_openai_compativel(self, sistema: str, usuario: str) -> Optional[Dict[str, Any]]:
-        base_url = "https://api.groq.com/openai/v1" if self.provedor_ativo == "groq" else "https://api.openai.com/v1"
+        if self.provedor_ativo == "grok":
+            base_url = "https://api.x.ai/v1"
+        elif self.provedor_ativo == "groq":
+            base_url = "https://api.groq.com/openai/v1"
+        else:
+            base_url = "https://api.openai.com/v1"
+
         url = f"{base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.chave_api}",

@@ -38,3 +38,12 @@ def test_get_feed():
     assert len(eventos) > 0
     assert "tag" in eventos[0]
 
+
+def test_get_whatsapp_status():
+    resp = client.get("/api/whatsapp/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "ativo" in data
+    assert "modo" in data
+
+

@@ -150,6 +150,12 @@
         <span id="badge-tg-status">Telegram</span>
       </button>
 
+      <!-- Configurar WhatsApp -->
+      <button onclick="abrirModalWhatsApp()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
+        <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span id="badge-wa-status">WhatsApp</span>
+      </button>
+
       <!-- Botão Executar Ciclo -->
       <button onclick="executarCiclo()" id="btn-ciclo" class="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-full transition shadow-sm">
         <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="icon-refresh"></i>
@@ -399,7 +405,8 @@
         <div>
           <label class="block font-semibold text-[#9aa0a6] mb-1">Provedor de LLM</label>
           <select id="select-provedor-ia" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-cyan-400">
-            <option value="gemini">Google Gemini (Recomendado: 1.5 Flash / 2.0)</option>
+            <option value="grok">xAI Grok (grok-2-latest / grok-beta)</option>
+            <option value="gemini">Google Gemini (Gemini 1.5 Flash / 2.0)</option>
             <option value="anthropic">Anthropic Claude (Claude 3.5 Sonnet)</option>
             <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
             <option value="groq">Groq (Llama 3.3 70B Ultra Rápido)</option>
@@ -488,6 +495,52 @@
         <div class="flex gap-2">
           <button onclick="fecharModalTelegram()" class="px-4 py-2 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3]">Cancelar</button>
           <button onclick="salvarTelegram()" id="btn-salvar-tg" class="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-xs text-slate-950 font-bold">Salvar Alertas</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal WhatsApp Reports & Alerts -->
+  <div id="modal-whatsapp" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center pb-2 border-b border-[#303338]">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="message-circle" class="w-5 h-5 text-emerald-400"></i>
+          Relatórios & Alertas no WhatsApp
+        </h3>
+        <button onclick="fecharModalWhatsApp()" class="text-[#9aa0a6] hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Seu Telefone WhatsApp (com DDI e DDD)</label>
+          <input type="text" id="input-wa-phone" placeholder="Ex: 5511999998888" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-emerald-400 mono">
+          <p class="text-[10px] text-[#9aa0a6] mt-0.5">Formato: DDI do Brasil (55) + DDD + Seu número sem traços.</p>
+        </div>
+        <div>
+          <label class="block font-semibold text-[#9aa0a6] mb-1">Chave CallMeBot (Gateway Gratuito)</label>
+          <input type="text" id="input-wa-apikey" placeholder="Cole sua chave aqui (ex: 123456)" class="w-full bg-[#131314] border border-[#303338] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-emerald-400 mono">
+        </div>
+        <div class="p-3 rounded-lg bg-[#131314] border border-[#303338] text-[11px] text-[#9aa0a6] space-y-1">
+          <p class="text-emerald-400 font-semibold">Como pegar sua chave grátis no WhatsApp em 5 segundos:</p>
+          <p>1. Adicione o contato: <b>+34 644 44 44 44</b> no seu WhatsApp</p>
+          <p>2. Envie para ele: <span class="text-white mono bg-[#202124] px-1 py-0.5 rounded">I allow callmebot to send me messages</span></p>
+          <p>3. Ele responderá na hora com sua <b>apikey</b> pessoal gratuita!</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-[#303338]">
+        <div class="flex gap-1.5">
+          <button onclick="testarWhatsApp()" class="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-semibold border border-emerald-500/30">
+            Enviar Teste
+          </button>
+          <button onclick="enviarRelatorioWhatsApp()" class="px-3 py-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 text-xs font-semibold border border-blue-500/30">
+            📊 Enviar Relatório Agora
+          </button>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="fecharModalWhatsApp()" class="px-3 py-1.5 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3]">Cancelar</button>
+          <button onclick="salvarWhatsApp()" id="btn-salvar-wa" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-xs text-slate-950 font-bold">Salvar</button>
         </div>
       </div>
     </div>
@@ -821,6 +874,17 @@
             badgeTG.innerText = s.telegram_ativo ? `Telegram: Ativo` : 'Telegram';
           }
 
+          const badgeWA = document.getElementById('badge-wa-status');
+          if (badgeWA) {
+            if (s.whatsapp_ativo) {
+              badgeWA.innerText = `WhatsApp: Ativo`;
+              badgeWA.className = 'text-emerald-400 font-bold';
+            } else {
+              badgeWA.innerText = 'WhatsApp';
+              badgeWA.className = 'text-[#e3e3e3]';
+            }
+          }
+
           // Regime Macro
           const labelRegime = document.getElementById('label-regime-macro');
           if (labelRegime) {
@@ -1089,6 +1153,65 @@
         alert(data.status || data.detail);
       } catch (e) {
         alert('Falha ao enviar mensagem de teste.');
+      }
+    }
+
+    // ================= WHATSAPP FUNCTIONS =================
+    function abrirModalWhatsApp() { document.getElementById('modal-whatsapp').classList.remove('hidden'); }
+    function fecharModalWhatsApp() { document.getElementById('modal-whatsapp').classList.add('hidden'); }
+
+    async function salvarWhatsApp() {
+      const telefone = document.getElementById('input-wa-phone').value;
+      const apikey_callmebot = document.getElementById('input-wa-apikey').value;
+      if (!telefone || !apikey_callmebot) return alert('Por favor, informe seu telefone e a chave CallMeBot.');
+
+      const btn = document.getElementById('btn-salvar-wa');
+      btn.disabled = true;
+      btn.innerText = 'Salvando...';
+
+      try {
+        const res = await fetch('/api/whatsapp/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, apikey_callmebot })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('WhatsApp configurado com sucesso! Agora você pode enviar relatórios e alertas.');
+          fecharModalWhatsApp();
+          await atualizarTudo();
+        } else {
+          alert(`Erro: ${data.detail}`);
+        }
+      } catch (e) {
+        alert('Erro ao comunicar com o servidor.');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Salvar';
+      }
+    }
+
+    async function testarWhatsApp() {
+      try {
+        const res = await fetch('/api/whatsapp/test', { method: 'POST' });
+        const data = await res.json();
+        alert(data.status || data.detail);
+      } catch (e) {
+        alert('Falha ao enviar mensagem de teste para o WhatsApp.');
+      }
+    }
+
+    async function enviarRelatorioWhatsApp() {
+      try {
+        const res = await fetch('/api/whatsapp/report', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert(data.status);
+        } else {
+          alert(`Erro: ${data.detail}`);
+        }
+      } catch (e) {
+        alert('Falha ao despachar relatório para o WhatsApp.');
       }
     }
 

@@ -31,14 +31,16 @@ from src.agents.contracts import ParecerRevisao, ViesDirecional
 from src.agents.llm_client import LLMClient
 from src.agents.coordinator import CoordenadorCiclo
 from src.agents.telegram_notifier import TelegramNotifier
+from src.agents.whatsapp_notifier import WhatsAppNotifier
 from src.finance.math_engine import calcular_drawdown_maximo
 
 app = FastAPI(title="Mesa Proprietária Multiagente - Dashboard")
 
-# Instâncias persistentes da carteira, OrderGate, LLM, Telegram, BTG e Live Market
+# Instâncias persistentes da carteira, OrderGate, LLM, Telegram, WhatsApp, BTG e Live Market
 CONFIG_PATH = os.getenv("CONFIG_PATH", "config/risk_limits.json")
 llm_client = LLMClient()
 telegram = TelegramNotifier()
+whatsapp = WhatsAppNotifier()
 btg = BTGConnector()
 carteira = CarteiraSimulada(saldo_inicial_brl=100.0)
 gate = OrderGate(caminho_config=CONFIG_PATH, carteira=carteira)
@@ -124,6 +126,12 @@ class ConfigurarTelegramRequest(BaseModel):
     chat_id: str
 
 
+class ConfigurarWhatsAppRequest(BaseModel):
+    telefone: str
+    apikey_callmebot: Optional[str] = None
+    webhook_url: Optional[str] = None
+
+
 class ConfigurarBTGRequest(BaseModel):
     client_id: str
     client_secret: str
@@ -163,6 +171,7 @@ async def get_status():
 
     info_llm = llm_client.obter_status()
     info_tg = telegram.obter_status()
+    info_wa = whatsapp.obter_status()
     info_btg = btg.obter_status()
 
     return {
@@ -189,6 +198,10 @@ async def get_status():
         "telegram_ativo": info_tg.ativo,
         "telegram_bot": info_tg.nome_bot,
         "telegram_detalhes": info_tg.detalhes,
+        "whatsapp_ativo": info_wa.ativo,
+        "whatsapp_modo": info_wa.modo,
+        "whatsapp_telefone": info_wa.telefone,
+        "whatsapp_detalhes": info_wa.detalhes,
         "btg_conectado": info_btg.conectado,
         "btg_modo": info_btg.modo,
         "btg_conta": info_btg.conta,
@@ -254,6 +267,61 @@ async def test_telegram():
     if not sucesso:
         raise HTTPException(status_code=500, detail="Falha ao enviar mensagem de teste.")
     return {"status": "Mensagem enviada com sucesso ao seu celular!"}
+
+
+@app.get("/api/whatsapp/status")
+async def get_whatsapp_status():
+    st = whatsapp.obter_status()
+    return {
+        "ativo": st.ativo,
+        "modo": st.modo,
+        "telefone": st.telefone,
+        "detalhes": st.detalhes,
+    }
+
+
+@app.post("/api/whatsapp/configure")
+async def configure_whatsapp(req: ConfigurarWhatsAppRequest):
+    if not req.telefone:
+        raise HTTPException(status_code=400, detail="Número de telefone é obrigatório.")
+    whatsapp.reconfigurar(req.telefone, req.apikey_callmebot, req.webhook_url)
+    st = whatsapp.obter_status()
+    return {
+        "status": "WhatsApp configurado com sucesso!",
+        "modo": st.modo,
+        "telefone": st.telefone,
+        "detalhes": st.detalhes,
+    }
+
+
+@app.post("/api/whatsapp/test")
+async def test_whatsapp():
+    if not whatsapp.obter_status().ativo:
+        raise HTTPException(status_code=400, detail="WhatsApp não configurado.")
+    sucesso = whatsapp.enviar_mensagem("🚀 *Mesa Multiagente:* Conexão com WhatsApp validada com sucesso! Relatórios e alertas ativos.")
+    if not sucesso:
+        raise HTTPException(status_code=500, detail="Falha ao enviar mensagem de teste no WhatsApp.")
+    return {"status": "Mensagem de teste enviada com sucesso ao seu WhatsApp!"}
+
+
+@app.post("/api/whatsapp/report")
+async def send_whatsapp_report():
+    if not whatsapp.obter_status().ativo:
+        raise HTTPException(status_code=400, detail="WhatsApp não configurado.")
+
+    cotacoes = live_market.dados_mercado
+    provedor = llm_client.obter_status().provedor
+    sucesso = whatsapp.enviar_relatorio_mercado(
+        patrimonio_total=carteira.patrimonio_total,
+        saldo_caixa=carteira.saldo_caixa,
+        pnl_hoje=carteira.pl_realizado_hoje,
+        regime_macro=ultimo_diagnostico.get("regime_macro", "Reflação / Cautela"),
+        cotacoes=cotacoes,
+        provedor_ia=provedor,
+    )
+    if not sucesso:
+        raise HTTPException(status_code=500, detail="Falha ao despachar relatório para o WhatsApp.")
+    return {"status": "Relatório completo enviado com sucesso ao seu WhatsApp!"}
 
 
 @app.get("/api/btg/status")
@@ -363,8 +431,11 @@ async def run_cycle():
         }
         propostas_pendentes[prop_id] = dados_proposta
 
-        if status_inicial == "PENDENTE_APROVACAO_HUMANA" and telegram.obter_status().ativo:
-            telegram.notificar_proposta_trade(dados_proposta)
+        if status_inicial == "PENDENTE_APROVACAO_HUMANA":
+            if telegram.obter_status().ativo:
+                telegram.notificar_proposta_trade(dados_proposta)
+            if whatsapp.obter_status().ativo:
+                whatsapp.notificar_proposta_whatsapp(dados_proposta)
 
     feed_eventos.insert(0, {
         "id": f"ev-{int(datetime.now().timestamp())}",
@@ -440,7 +511,7 @@ async def approve_proposal(proposta_id: str):
         "mensagem": f"Lote: {decisao.dimensionamento.tamanho_lote:.4f} @ R$ {prop['preco_atual']:.2f}. Risco: R$ {decisao.dimensionamento.risco_financeiro_brl:.2f}. ID BTG: {resp_btg.ordem_id_btg}.",
     })
 
-    # Envia notificação de execução confirmada para o celular via Telegram
+    # Envia notificação de execução confirmada para o celular via Telegram e WhatsApp
     if telegram.obter_status().ativo:
         telegram.notificar_execucao(
             ativo=prop["ativo"],
@@ -449,6 +520,15 @@ async def approve_proposal(proposta_id: str):
             preco=prop["preco_atual"],
             risco_brl=decisao.dimensionamento.risco_financeiro_brl,
             saldo_restante=carteira.saldo_caixa,
+        )
+    if whatsapp.obter_status().ativo:
+        whatsapp.enviar_mensagem(
+            f"✅ *ORDEM EXECUTADA NA B3 (BTG CLOUD)*\n"
+            f"🎯 *Ativo:* {prop['ativo']} ({prop['tipo']})\n"
+            f"📦 *Lote:* {decisao.dimensionamento.tamanho_lote:.4f} @ R$ {prop['preco_atual']:.2f}\n"
+            f"🛡️ *Risco Alocado:* R$ {decisao.dimensionamento.risco_financeiro_brl:.2f}\n"
+            f"💵 *Saldo em Caixa:* R$ {carteira.saldo_caixa:.2f}\n"
+            f"🧾 *ID BTG:* {resp_btg.ordem_id_btg}"
         )
 
     return {
