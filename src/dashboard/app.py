@@ -3,9 +3,10 @@ Painel Web Privado da Mesa Proprietária Multiagente (FastAPI).
 Permite visualização em tempo real de:
 - Patrimônio e metas da Fase Semente (R$ 100 -> R$ 250)
 - Métricas e cotações da cesta multimercado (Z-Score, ATR, Volatilidade)
-- Regime macroeconômico vigente
-- Propostas do Analista e parecer do Revisor
+- Regime macroeconômico vigente analisado por IA (Sistema 2)
+- Propostas do Analista e parecer do Revisor Independente
 - Botão "Sugestão + 1 Clique" para aprovação humana e execução pelo Order Gate
+- Configuração dinâmica de chaves de IA (Gemini, Claude, OpenAI)
 - Histórico auditável de ordens
 """
 
@@ -16,23 +17,28 @@ from typing import Dict, Any, List, Optional
 import os
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from src.collectors.market_data import ColetorMercado
 from src.execution.portfolio_simulator import CarteiraSimulada, TipoOperacao, EstadoOrdem
 from src.execution.order_gate import OrderGate, PropostaTrade
 from src.agents.contracts import ParecerRevisao, ViesDirecional
+from src.agents.llm_client import LLMClient
+from src.agents.coordinator import CoordenadorCiclo
 from src.finance.math_engine import calcular_drawdown_maximo
 
 app = FastAPI(title="Mesa Proprietária Multiagente - Dashboard")
 
-# Instância persistente da carteira e do OrderGate
+# Instâncias persistentes da carteira, OrderGate e LLM
 CONFIG_PATH = os.getenv("CONFIG_PATH", "config/risk_limits.json")
+llm_client = LLMClient()
 carteira = CarteiraSimulada(saldo_inicial_brl=100.0)
 gate = OrderGate(caminho_config=CONFIG_PATH, carteira=carteira)
 coletor = ColetorMercado()
+coordenador = CoordenadorCiclo(caminho_config=CONFIG_PATH, llm_client=llm_client)
+coordenador.carteira = carteira
+coordenador.gate = gate
 
 # Estado de propostas pendentes para aprovação humana
 propostas_pendentes: Dict[str, Dict[str, Any]] = {}
@@ -44,8 +50,10 @@ ultimo_diagnostico: Dict[str, Any] = {
 curva_patrimonio: List[float] = [100.0]
 
 
-class AprovacaoRequest(BaseModel):
-    proposta_id: str
+class ConfigurarLLMRequest(BaseModel):
+    provedor: str  # "gemini", "anthropic", "openai", "groq"
+    chave: str
+    modelo: Optional[str] = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -78,6 +86,8 @@ async def get_status():
             }
         )
 
+    info_llm = llm_client.obter_status()
+
     return {
         "capital_inicial": carteira.capital_inicial,
         "saldo_caixa": round(carteira.saldo_caixa, 2),
@@ -92,7 +102,36 @@ async def get_status():
         "posicoes": posicoes_detalhadas,
         "regime_macro": ultimo_diagnostico.get("regime_macro"),
         "ultimo_resumo": ultimo_diagnostico.get("resumo"),
+        "llm_ativo": info_llm.ativo,
+        "llm_provedor": info_llm.provedor,
+        "llm_modelo": info_llm.modelo,
+        "llm_detalhes": info_llm.detalhes,
         "timestamp_atual": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/api/llm/status")
+async def get_llm_status():
+    status = llm_client.obter_status()
+    return {
+        "ativo": status.ativo,
+        "provedor": status.provedor,
+        "modelo": status.modelo,
+        "detalhes": status.detalhes,
+    }
+
+
+@app.post("/api/llm/configure")
+async def configure_llm(req: ConfigurarLLMRequest):
+    if not req.chave or len(req.chave.strip()) < 8:
+        raise HTTPException(status_code=400, detail="Chave de API inválida.")
+    llm_client.reconfigurar_chave(req.provedor, req.chave.strip(), req.modelo)
+    status = llm_client.obter_status()
+    return {
+        "status": "Configurado com sucesso",
+        "provedor": status.provedor,
+        "modelo": status.modelo,
+        "detalhes": status.detalhes,
     }
 
 
@@ -116,52 +155,50 @@ async def run_cycle():
     snapshot = coletor.coletar_cesta_completa()
     coletor.salvar_snapshot()
 
-    # Atualiza as cotações das posições abertas na carteira
+    # Atualiza cotações das posições existentes na carteira
     for ticker, metrica in snapshot.items():
         carteira.atualizar_cotacao(ticker, metrica.preco_atual)
 
-    # Avaliação Macro
-    usd = snapshot.get("USDBRL=X")
-    z_usd = usd.zscore_20p if usd else 0.0
-    regime = "Reflação / Cautela Cambial" if z_usd > 1.5 else "Goldilocks / Oportunidade"
+    # Executa análise através do coordenador (com IA real se configurada)
+    snapshot_dict = {k: metrica.__dict__ for k, metrica in snapshot.items()}
+    diagnostico = coordenador.analisar_mercado(snapshot_dict)
 
     ultimo_diagnostico = {
-        "regime_macro": regime,
-        "resumo": f"Análise concluída com 4 ativos. Dólar Z={z_usd:.2f}.",
+        "regime_macro": diagnostico.regime_macro_vigente,
+        "resumo": diagnostico.resumo_cenario,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-    # Gera propostas do analista
+    # Gera propostas submetidas ao Revisor Independente
     propostas_pendentes.clear()
-    for ticker, m in snapshot.items():
-        if ticker == "USDBRL=X":
-            continue
+    for prop in diagnostico.propostas:
+        metricas_ativo = snapshot_dict.get(prop.ativo, {})
+        revisao = coordenador.revisar_proposta(prop, metricas_ativo, diagnostico.regime_macro_vigente)
 
-        if m.zscore_20p <= -1.8:
-            dist_stop = 1.5 * m.atr_14p
-            p_stop = m.preco_atual - dist_stop
-            p_alvo = m.preco_atual + (2.0 * dist_stop)
-            prop_id = f"PROP-{ticker}-{int(datetime.now().timestamp())}"
+        prop_id = f"PROP-{prop.ativo}-{int(datetime.now().timestamp())}"
+        status_inicial = "PENDENTE_APROVACAO_HUMANA" if revisao.parecer == ParecerRevisao.APROVADO else "REJEITADA_NA_REVISAO"
 
-            propostas_pendentes[prop_id] = {
-                "proposta_id": prop_id,
-                "ativo": ticker,
-                "tipo": "COMPRA",
-                "preco_atual": round(m.preco_atual, 2),
-                "preco_stop_loss": round(p_stop, 2),
-                "preco_take_profit": round(p_alvo, 2),
-                "probabilidade": 0.78,
-                "justificativa": f"Estiramento estatístico inferior (Z={m.zscore_20p:.2f}) com ATR=R${m.atr_14p:.2f}",
-                "vies_macro": "LONG",
-                "revisor_parecer": "APROVADO",
-                "revisor_nota": "Auditoria de dados e relação risco/retorno (2.0x) confirmada.",
-                "status": "PENDENTE_APROVACAO_HUMANA",
-            }
+        propostas_pendentes[prop_id] = {
+            "proposta_id": prop_id,
+            "ativo": prop.ativo,
+            "tipo": prop.tipo_operacao,
+            "preco_atual": round(prop.preco_referencia, 2),
+            "preco_stop_loss": round(prop.preco_stop_loss, 2),
+            "preco_take_profit": round(prop.preco_take_profit, 2),
+            "probabilidade": prop.probabilidade_estimada,
+            "justificativa": prop.justificativa_quant,
+            "vies_macro": prop.vies_macro.value,
+            "revisor_parecer": revisao.parecer.value,
+            "revisor_nota": revisao.justificativa_final,
+            "revisor_contrapontos": revisao.contrapontos_identificados,
+            "status": status_inicial,
+        }
 
     return {
         "status": "Ciclo executado com sucesso",
+        "provedor_ia": llm_client.obter_status().provedor,
         "novas_propostas": len(propostas_pendentes),
-        "regime_macro": regime,
+        "regime_macro": diagnostico.regime_macro_vigente,
     }
 
 
@@ -172,9 +209,8 @@ async def approve_proposal(proposta_id: str):
 
     prop = propostas_pendentes[proposta_id]
     if prop["status"] != "PENDENTE_APROVACAO_HUMANA":
-        raise HTTPException(status_code=400, detail="Proposta já processada.")
+        raise HTTPException(status_code=400, detail="Proposta não está pendente de aprovação.")
 
-    # Converte e envia ao Order Gate para validação matemática de risco
     trade = PropostaTrade(
         proposta_id=prop["proposta_id"],
         ativo=prop["ativo"],

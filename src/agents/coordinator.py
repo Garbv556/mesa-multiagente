@@ -1,13 +1,14 @@
 """
 Coordenador do Ciclo Operacional Mínimo.
-Conecta os dados coletados ao Analista, submete ao Revisor e envia as propostas aprovadas
-ao Order Gate para execução na Carteira Simulada.
+Conecta os dados coletados ao Analista (Sistema 2 com LLM ou fallback),
+submete a proposta ao Revisor Independente (Auditoria e contraponto)
+e encaminha as propostas aprovadas ao Order Gate determinístico para execução na Carteira.
 """
 
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from src.collectors.market_data import ColetorMercado
 from src.execution.portfolio_simulator import CarteiraSimulada, TipoOperacao
@@ -19,27 +20,64 @@ from src.agents.contracts import (
     ParecerRevisao,
     ViesDirecional,
 )
+from src.agents.llm_client import LLMClient
+from src.agents.prompts import PROMPT_SISTEMA_ANALISTA, PROMPT_SISTEMA_REVISOR
 
 
 class CoordenadorCiclo:
-    def __init__(self, caminho_config: str = "config/risk_limits.json"):
+    def __init__(self, caminho_config: str = "config/risk_limits.json", llm_client: Optional[LLMClient] = None):
         self.caminho_config = caminho_config
         self.carteira = CarteiraSimulada(saldo_inicial_brl=100.0)
         self.gate = OrderGate(caminho_config=self.caminho_config, carteira=self.carteira)
         self.coletor = ColetorMercado()
+        self.llm = llm_client or LLMClient()
+
+    def analisar_mercado(self, snapshot: Dict[str, Any]) -> DiagnosticoMercado:
+        """
+        Gera o diagnóstico de mercado. Se houver chave de IA ativa (Gemini, Claude, GPT),
+        utiliza o LLM com o prompt formal do Sistema 2. Caso contrário, aciona o fallback determinístico.
+        """
+        if self.llm.provedor_ativo != "nenhum":
+            prompt_usuario = (
+                f"Dados observados da cesta multimercado (4 tempos registrados):\n"
+                f"{json.dumps(snapshot, indent=2, ensure_ascii=False)}\n\n"
+                f"Analise o regime macro e gere as propostas quantitativas cabíveis."
+            )
+            resposta = self.llm.gerar_json(PROMPT_SISTEMA_ANALISTA, prompt_usuario)
+            if resposta and "regime_macro_vigente" in resposta:
+                try:
+                    propostas_formatadas = []
+                    for p in resposta.get("propostas", []):
+                        propostas_formatadas.append(
+                            PropostaAnalista(
+                                ativo=p["ativo"],
+                                tipo_operacao=p.get("tipo_operacao", "COMPRA"),
+                                preco_referencia=float(p["preco_referencia"]),
+                                preco_stop_loss=float(p["preco_stop_loss"]),
+                                preco_take_profit=float(p["preco_take_profit"]),
+                                probabilidade_estimada=float(p.get("probabilidade_estimada", 0.78)),
+                                justificativa_quant=p.get("justificativa_quant", ""),
+                                vies_macro=ViesDirecional(p.get("vies_macro", "LONG")),
+                            )
+                        )
+                    return DiagnosticoMercado(
+                        regime_macro_vigente=resposta["regime_macro_vigente"],
+                        resumo_cenario=f"[{self.llm.provedor_ativo.upper()}] {resposta.get('resumo_cenario', '')}",
+                        propostas=propostas_formatadas,
+                        timestamp_geracao=datetime.now(timezone.utc).isoformat(),
+                    )
+                except Exception as e:
+                    print(f"[Aviso] Falha ao processar saída JSON do Analista LLM: {e}. Acionando fallback determinístico.")
+
+        return self.analisar_mercado_deterministico(snapshot)
 
     def analisar_mercado_deterministico(self, snapshot: Dict[str, Any]) -> DiagnosticoMercado:
-        """
-        Gera análise preliminar com base nas regras do catálogo quantitativo (/notebook_kb/03_catalogo_setups_quant.json).
-        Se Z-Score < -1.8 com viés favorável, gera proposta LONG com Stop Loss em 1.5 * ATR.
-        """
         propostas: List[PropostaAnalista] = []
         agora = datetime.now(timezone.utc).isoformat()
 
-        # Determinação do regime macro (exemplo simplificado: DXY/USDBRL alto -> cautela/reflação)
         usd = snapshot.get("USDBRL=X", {})
         z_usd = usd.get("zscore_20p", 0.0)
-        regime = "Reflação / Cautela Cambial" if z_usd > 1.5 else "Goldilocks / Neutro"
+        regime = "Reflação / Cautela Cambial" if z_usd > 1.5 else "Goldilocks / Oportunidade"
 
         for ticker, metricas in snapshot.items():
             if ticker == "USDBRL=X":
@@ -49,11 +87,11 @@ class CoordenadorCiclo:
             preco = metricas.get("preco_atual", 0.0)
             atr = metricas.get("atr_14p", 1.0)
 
-            # Setup Retorno à Média (Mean Reversion): Z-Score esticado para baixo
+            # Setup Retorno à Média (Mean Reversion)
             if zscore <= -1.8:
                 distancia_stop = 1.5 * atr
                 preco_stop = preco - distancia_stop
-                preco_alvo = preco + (2.0 * distancia_stop)  # Razão 2:1
+                preco_alvo = preco + (2.0 * distancia_stop)
 
                 propostas.append(
                     PropostaAnalista(
@@ -70,24 +108,48 @@ class CoordenadorCiclo:
 
         return DiagnosticoMercado(
             regime_macro_vigente=regime,
-            resumo_cenario=f"Monitoramento de {len(snapshot)} ativos. Dólar Z={z_usd:.2f}.",
+            resumo_cenario=f"Monitoramento determinístico de {len(snapshot)} ativos. Dólar Z={z_usd:.2f}.",
             propostas=propostas,
             timestamp_geracao=agora,
         )
 
-    def revisar_proposta(self, proposta: PropostaAnalista, metricas_ativo: dict) -> RelatorioRevisao:
+    def revisar_proposta(self, proposta: PropostaAnalista, metricas_ativo: dict, regime_macro: str = "Neutro") -> RelatorioRevisao:
         """
         O Revisor audita a consistência das contas e a atualidade dos dados.
+        Se LLM disponível, submete ao auditor de IA independente; senão, usa checagem determinística.
         """
+        if self.llm.provedor_ativo != "nenhum":
+            prompt_usuario = (
+                f"Proposta do Analista para Auditoria:\n"
+                f"{proposta.model_dump_json(indent=2)}\n\n"
+                f"Métricas brutas do ativo auditado:\n"
+                f"{json.dumps(metricas_ativo, indent=2, ensure_ascii=False)}\n\n"
+                f"Regime Macro Classificado: {regime_macro}\n\n"
+                f"Audite a proposta e emita seu parecer formal."
+            )
+            resposta = self.llm.gerar_json(PROMPT_SISTEMA_REVISOR, prompt_usuario)
+            if resposta and "parecer" in resposta:
+                try:
+                    return RelatorioRevisao(
+                        parecer=ParecerRevisao(resposta["parecer"]),
+                        contrapontos_identificados=resposta.get("contrapontos_identificados", []),
+                        inconsistencias_temporais=resposta.get("inconsistencias_temporais", []),
+                        auditoria_matematica_valida=bool(resposta.get("auditoria_matematica_valida", True)),
+                        justificativa_final=f"[{self.llm.provedor_ativo.upper()}] {resposta.get('justificativa_final', '')}",
+                    )
+                except Exception as e:
+                    print(f"[Aviso] Falha ao processar saída JSON do Revisor LLM: {e}. Usando auditoria determinística.")
+
+        return self.revisar_proposta_deterministica(proposta, metricas_ativo)
+
+    def revisar_proposta_deterministica(self, proposta: PropostaAnalista, metricas_ativo: dict) -> RelatorioRevisao:
         contrapontos = []
         inconsistencias = []
 
-        # Conferência de validade temporal
         tempo_coleta = metricas_ativo.get("tempo_coleta")
         if not tempo_coleta:
             inconsistencias.append("Dado sem timestamp de coleta.")
 
-        # Auditoria matemática de Stop Loss e Take Profit
         distancia_perda = proposta.preco_referencia - proposta.preco_stop_loss
         distancia_ganho = proposta.preco_take_profit - proposta.preco_referencia
 
@@ -107,26 +169,22 @@ class CoordenadorCiclo:
             contrapontos_identificados=contrapontos,
             inconsistencias_temporais=inconsistencias,
             auditoria_matematica_valida=valido,
-            justificativa_final="Revisão matemática e temporal concluída com sucesso."
+            justificativa_final="Revisão matemática e temporal confirmada com sucesso."
             if valido
-            else "Proposta reprovada pelos critérios de governança.",
+            else "Proposta reprovada pelos critérios de risco.",
         )
 
     def executar_ciclo_completo(self) -> Dict[str, Any]:
-        """
-        Executa o fluxo de ponta a ponta:
-        1. Coleta -> 2. Análise -> 3. Revisão -> 4. Order Gate -> 5. Carteira
-        """
-        # 1. Coleta de dados
         caminho_snapshot = self.coletor.salvar_snapshot()
         with open(caminho_snapshot, "r", encoding="utf-8") as f:
             snapshot = json.load(f)
 
-        # 2. Análise
-        diagnostico = self.analisar_mercado_deterministico(snapshot)
+        diagnostico = self.analisar_mercado(snapshot)
 
         resultados_ciclo = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "provedor_ia": self.llm.obter_status().provedor,
+            "modelo_ia": self.llm.obter_status().modelo,
             "regime_macro": diagnostico.regime_macro_vigente,
             "propostas_geradas": len(diagnostico.propostas),
             "decisoes": [],
@@ -134,10 +192,9 @@ class CoordenadorCiclo:
             "patrimonio_total": self.carteira.patrimonio_total,
         }
 
-        # 3 e 4. Revisão e Order Gate
         for prop in diagnostico.propostas:
             metricas = snapshot.get(prop.ativo, {})
-            revisao = self.revisar_proposta(prop, metricas)
+            revisao = self.revisar_proposta(prop, metricas, diagnostico.regime_macro_vigente)
 
             if revisao.parecer != ParecerRevisao.APROVADO:
                 resultados_ciclo["decisoes"].append(
@@ -149,7 +206,6 @@ class CoordenadorCiclo:
                 )
                 continue
 
-            # Submete ao OrderGate
             proposta_trade = PropostaTrade(
                 proposta_id=f"PROP-{prop.ativo}",
                 ativo=prop.ativo,
@@ -180,11 +236,3 @@ class CoordenadorCiclo:
         resultados_ciclo["saldo_final_carteira"] = self.carteira.saldo_caixa
         resultados_ciclo["patrimonio_total"] = self.carteira.patrimonio_total
         return resultados_ciclo
-
-
-if __name__ == "__main__":
-    print("Iniciando ciclo de demonstração do núcleo mínimo...")
-    coord = CoordenadorCiclo()
-    res = coord.executar_ciclo_completo()
-    print("\n=== Resultado do Ciclo ===")
-    print(json.dumps(res, indent=2, ensure_ascii=False))
