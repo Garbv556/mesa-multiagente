@@ -46,3 +46,14 @@ def test_api_configurar_llm():
     status_resp = client.get("/api/llm/status")
     assert status_resp.status_code == 200
     assert status_resp.json()["ativo"] is True
+
+
+def test_api_configurar_grok():
+    resp = client.post(
+        "/api/llm/configure",
+        json={"provedor": "grok", "chave": "xai-test-key-12345678"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["provedor"] == "GROK"
+    assert "grok" in data["modelo"]

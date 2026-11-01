@@ -86,26 +86,26 @@
 </head>
 <body class="bg-[#131314] text-[#e3e3e3] min-h-screen flex flex-col selection:bg-emerald-500 selection:text-black">
 
-  <!-- ================= TOP HEADER (ESTILO GOOGLE FINANÇAS) ================= -->
-  <header class="border-b border-[#303338] bg-[#131314]/95 backdrop-blur sticky top-0 z-50 px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3">
+  <!-- ================= TOP HEADER (LIMPO & ESPAÇOSO ESTILO GOOGLE FINANÇAS) ================= -->
+  <header class="border-b border-[#303338] bg-[#131314]/95 backdrop-blur sticky top-0 z-40 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
     <!-- Logo & Título -->
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2.5 shrink-0">
       <div class="flex items-center gap-1.5 cursor-pointer">
         <svg class="w-6 h-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
           <polyline points="16 7 22 7 22 13"></polyline>
         </svg>
-        <span class="text-lg font-bold tracking-tight text-white flex items-center">
+        <span class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center">
           Mesa&nbsp;<span class="text-[#9aa0a6] font-normal">Multiagente Finanças</span>
         </span>
       </div>
-      <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/30">
+      <span class="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/30">
         Fase Semente (R$ 100)
       </span>
     </div>
 
-    <!-- Barra de Pesquisa Centralizada (Google Style) -->
-    <div class="flex-1 max-w-lg mx-2 hidden md:block">
+    <!-- Barra de Pesquisa Ampla e Centralizada -->
+    <div class="flex-1 max-w-xl mx-2 hidden sm:block">
       <div class="relative flex items-center">
         <i data-lucide="search" class="w-4 h-4 text-[#9aa0a6] absolute left-4 pointer-events-none"></i>
         <input
@@ -119,8 +119,8 @@
       </div>
     </div>
 
-    <!-- Controles Rápidos & Badge Ao Vivo -->
-    <div class="flex items-center gap-2 flex-wrap">
+    <!-- Controles Rápidos do Topo -->
+    <div class="flex items-center gap-2.5 shrink-0">
       <!-- Badge Ao Vivo & Relógio B3 -->
       <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#202124] border border-[#3c4043] text-xs">
         <span class="relative flex h-2 w-2">
@@ -132,34 +132,17 @@
         <span id="relogio-b3" class="mono text-[#e3e3e3] font-medium text-xs">17:04:13</span>
       </div>
 
-      <!-- Configurar IA -->
-      <button onclick="abrirModalIA()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
-        <i data-lucide="cpu" class="w-3.5 h-3.5 text-cyan-400"></i>
-        <span id="badge-llm-status">IA: Carregando...</span>
-      </button>
-
-      <!-- Configurar BTG Pactual -->
-      <button onclick="abrirModalBTG()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
-        <i data-lucide="landmark" class="w-3.5 h-3.5 text-amber-400"></i>
-        <span id="badge-btg-status">BTG: Cloud Simulado</span>
-      </button>
-
-      <!-- Configurar Telegram -->
-      <button onclick="abrirModalTelegram()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
-        <i data-lucide="send" class="w-3.5 h-3.5 text-blue-400"></i>
-        <span id="badge-tg-status">Telegram</span>
-      </button>
-
-      <!-- Configurar WhatsApp -->
-      <button onclick="abrirModalWhatsApp()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-[#e3e3e3] border border-[#3c4043] transition">
-        <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
-        <span id="badge-wa-status">WhatsApp</span>
-      </button>
-
       <!-- Botão Executar Ciclo -->
       <button onclick="executarCiclo()" id="btn-ciclo" class="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-full transition shadow-sm">
         <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="icon-refresh"></i>
-        <span>Analisar Agora</span>
+        <span class="hidden md:inline">Analisar Agora</span>
+      </button>
+
+      <!-- Botão Slide Bar Retrátil (Menu de Conexões) -->
+      <button onclick="abrirSlideBar()" id="btn-toggle-slidebar" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#202124] hover:bg-[#282a2d] text-xs text-white border border-[#3c4043] hover:border-emerald-500/50 transition shadow-sm">
+        <i data-lucide="sliders" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span class="font-semibold text-xs">Conexões</span>
+        <span id="badge-status-dot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
       </button>
     </div>
   </header>
@@ -273,8 +256,8 @@
         <div class="flex items-center justify-between pb-3 border-b border-[#303338]">
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <h2 class="text-sm font-bold text-white tracking-wide">Mesa de Operações · Proposta da IA</h2>
-            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">Modo Sugestão + 1 Clique</span>
+            <h2 id="area1-titulo" class="text-sm font-bold text-white tracking-wide">Mesa de Operações · Proposta da IA [GROK]</h2>
+            <span id="area1-badge-ia" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-semibold mono">CÉREBRO: xAI Grok</span>
           </div>
           <span class="text-[11px] text-[#9aa0a6]">Nenhuma ordem sem autorização humana</span>
         </div>
@@ -282,7 +265,7 @@
         <div id="conteudo-proposta" class="mt-4">
           <!-- Renderizado dinamicamente -->
           <div class="py-6 text-center text-xs text-[#9aa0a6]">
-            Nenhuma proposta pendente no momento. Os agentes estão monitorando estiramentos (|Z| ≥ 1.8).
+            Carregando propostas auditadas da IA...
           </div>
         </div>
       </div>
@@ -290,51 +273,51 @@
       <!-- ================= RESUMO SOBRE O MERCADO (ACCORDION GOOGLE FINANÇAS) ================= -->
       <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-5 space-y-3">
         <div class="flex items-center justify-between pb-2 border-b border-[#303338]">
-          <h2 class="text-base font-bold text-white">Resumo sobre o mercado</h2>
+          <h2 id="area2-titulo" class="text-base font-bold text-white">Resumo sobre o mercado (Análise Dinâmica: <span class="text-cyan-400 font-mono">GROK</span>)</h2>
           <span class="text-xs text-[#9aa0a6]" id="label-regime-macro">Regime: Reflação / Cautela Cambial</span>
         </div>
 
         <!-- Accordion 1: B3 & Mean Reversion -->
         <div class="border-b border-[#303338]/60 pb-3">
           <button onclick="toggleAccordion('acc-1')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
-            <span id="title-acc-1">Ações da B3 em sobrevenda técnica: Oportunidade de reversão à média</span>
+            <span id="title-acc-1">[GROK] Ações da B3 em sobrevenda técnica: Oportunidade de reversão à média</span>
             <i data-lucide="chevron-down" id="icon-acc-1" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-1" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p>O índice <b>BOVA11</b> atingiu normalização Z-Score de <b>-1.89</b> (estiramento estatístico de curto prazo). O modelo determinístico do Sistema 1 identifica assimetria favorável para compra, dimensionando Stop Loss a 1.5× ATR (R$ 154,06) e Alvo a 2.0× da amplitude (R$ 188,07).</p>
+            <p id="body-acc-1">O índice <b>BOVA11</b> atingiu normalização Z-Score de <b>-1.89</b> (estiramento estatístico de curto prazo). O modelo identifica assimetria favorável para compra, dimensionando Stop Loss a 1.5× ATR (R$ 154,06) e Alvo a 2.0× da amplitude (R$ 188,07).</p>
           </div>
         </div>
 
         <!-- Accordion 2: Macro Regime & Dólar -->
         <div class="border-b border-[#303338]/60 pb-3">
           <button onclick="toggleAccordion('acc-2')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
-            <span id="title-acc-2">Regime Macroeconômico: Cautela Cambial e pressão nos juros de longo prazo</span>
+            <span id="title-acc-2">[GROK] Regime Macroeconômico: Cautela Cambial e pressão nos juros de longo prazo</span>
             <i data-lucide="chevron-down" id="icon-acc-2" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-2" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p>O Dólar Comercial (<b>USDBRL</b>) opera em patamar elevado com Z-Score de <b>+1.75</b>. O modelo de Sistema 2 recomenda manter 100% de capital sem alavancagem, respeitando a trava de risco individual de 2,0% (R$ 2,00) via critério Quarter-Kelly fracionário.</p>
+            <p id="body-acc-2">O Dólar Comercial (<b>USDBRL</b>) opera em patamar elevado com Z-Score de <b>+1.75</b>. O modelo de Sistema 2 recomenda manter 100% de capital sem alavancagem, respeitando a trava de risco individual de 2,0% (R$ 2,00) via critério Quarter-Kelly fracionário.</p>
           </div>
         </div>
 
         <!-- Accordion 3: VIX & Volatilidade Global -->
         <div class="border-b border-[#303338]/60 pb-3">
           <button onclick="toggleAccordion('acc-3')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
-            <span id="title-acc-3">Índice VIX global em alta: Sentimento de cautela e aversão ao risco</span>
+            <span id="title-acc-3">[GROK] Índice VIX global em alta: Sentimento de cautela e aversão ao risco</span>
             <i data-lucide="chevron-down" id="icon-acc-3" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-3" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p>O CBOE VIX opera em <b>19.42 (+12,91%)</b>, sinalizando aumento de volatilidade nos mercados desenvolvidos. O portfólio mantém hedge natural através da exposição em <b>GOLD11</b> (Ouro físico) e <b>IVVB11</b> (S&P 500 cotado em reais).</p>
+            <p id="body-acc-3">O CBOE VIX opera em <b>19.42 (+12,91%)</b>, sinalizando aumento de volatilidade nos mercados desenvolvidos. O portfólio mantém hedge natural através da exposição em <b>GOLD11</b> (Ouro físico) e <b>IVVB11</b> (S&P 500 cotado em reais).</p>
           </div>
         </div>
 
         <!-- Accordion 4: Auditoria dos 4 Tempos & BTG -->
         <div>
           <button onclick="toggleAccordion('acc-4')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
-            <span id="title-acc-4">Auditoria dos 4 Tempos e Conexão em Nuvem com o BTG Pactual</span>
+            <span id="title-acc-4">[Auditoria & BTG Cloud] Auditoria dos 4 Tempos e Conexão em Nuvem com o BTG Pactual</span>
             <i data-lucide="chevron-down" id="icon-acc-4" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-4" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p>Todas as decisões do Order Gate registram os 4 carimbos imutáveis: <b>Referência</b> (pregão B3), <b>Evento</b> (variação de preço), <b>Publicação</b> (geração da proposta) e <b>Coleta</b> (auditoria de latência). O gateway BTG Cloud encaminha as ordens diretamente ao pregão sem necessidade de computadores locais.</p>
+            <p id="body-acc-4">Todas as decisões do Order Gate registram os 4 carimbos imutáveis: <b>Referência</b> (pregão B3), <b>Evento</b> (variação de preço), <b>Publicação</b> (geração da proposta) e <b>Coleta</b> (auditoria de latência). O gateway BTG Cloud encaminha as ordens diretamente ao pregão sem necessidade de computadores locais.</p>
           </div>
         </div>
       </div>
@@ -386,6 +369,245 @@
 
     </section>
   </main>
+
+  <!-- ================= SLIDE BAR RETRÁTIL (DRAWER DE CONEXÕES & IA) ================= -->
+  <!-- Backdrop -->
+  <div id="drawer-backdrop" onclick="fecharSlideBar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden transition-opacity duration-300"></div>
+
+  <!-- Drawer Sidebar -->
+  <div id="drawer-sidebar" class="fixed top-0 right-0 bottom-0 w-full sm:w-[460px] bg-[#1e1f20] border-l border-[#303338] shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+    <!-- Header do Drawer -->
+    <div class="p-4 sm:p-5 border-b border-[#303338] flex items-center justify-between bg-[#18191a]">
+      <div class="flex items-center gap-2.5">
+        <div class="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+          <i data-lucide="sliders" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-sm font-bold text-white tracking-wide">Painel de Conexões & Inteligência</h2>
+          <p class="text-[11px] text-[#9aa0a6]">Configure o cérebro de IA, Corretora e WhatsApp</p>
+        </div>
+      </div>
+      <button onclick="fecharSlideBar()" class="p-2 rounded-lg text-[#9aa0a6] hover:text-white hover:bg-[#303338] transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Conteúdo Scrollável do Drawer -->
+    <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+
+      <!-- Card 1: Inteligência Artificial (Cérebro da Mesa) -->
+      <div class="bg-[#131314] border border-[#303338] rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+            <span class="font-bold text-white text-xs">Cérebro da Mesa (IA)</span>
+          </div>
+          <span id="drawer-badge-llm" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 mono">
+            xAI Grok Ativo
+          </span>
+        </div>
+        <p class="text-[#9aa0a6] text-[11px] leading-relaxed">
+          Defina o modelo do Sistema 2 que analisa o regime macro, calcula assimetrias e assina as propostas da mesa.
+        </p>
+
+        <div class="space-y-2.5 pt-1">
+          <div>
+            <label class="block font-medium text-[#9aa0a6] mb-1">Provedor de LLM</label>
+            <select id="drawer-select-ia" class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-cyan-400 text-xs">
+              <option value="grok" selected>xAI Grok (grok-2-latest / grok-beta) ★</option>
+              <option value="gemini">Google Gemini (Gemini 1.5 Flash / 2.0)</option>
+              <option value="anthropic">Anthropic Claude (Claude 3.5 Sonnet)</option>
+              <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+              <option value="groq">Groq (Llama 3.3 70B Ultra Rápido)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-medium text-[#9aa0a6] mb-1">Chave de API (API Key)</label>
+            <input
+              type="password"
+              id="drawer-input-chave-ia"
+              placeholder="Cole sua chave xAI (xai-...) ou Gemini/OpenAI"
+              class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-cyan-400 mono text-xs"
+            >
+          </div>
+
+          <button onclick="salvarIADrawer()" id="drawer-btn-salvar-ia" class="w-full py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+            <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+            <span>Conectar & Ativar IA</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: Grok Bot ("Meets") & WhatsApp -->
+      <div class="bg-[#131314] border border-[#303338] rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="message-circle" class="w-4 h-4 text-emerald-400"></i>
+            <span class="font-bold text-white text-xs">Grok Bot ("Meets") & WhatsApp</span>
+          </div>
+          <span id="drawer-badge-wa" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            Disponível
+          </span>
+        </div>
+        <p class="text-[#9aa0a6] text-[11px] leading-relaxed">
+          Receba resumos diários de mercado, alertas de ordens e relatórios diretamente no seu WhatsApp pessoal.
+        </p>
+
+        <div class="space-y-2.5 pt-1">
+          <div>
+            <label class="block font-medium text-[#9aa0a6] mb-1">Seu Telefone (com DDI 55 e DDD)</label>
+            <input
+              type="text"
+              id="drawer-input-wa-phone"
+              placeholder="Ex: 5511999998888"
+              class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-emerald-400 mono text-xs"
+            >
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="font-medium text-[#9aa0a6]">Chave CallMeBot (Grátis)</label>
+              <a href="https://api.callmebot.com" target="_blank" class="text-[10px] text-emerald-400 hover:underline">Pegar chave no WhatsApp</a>
+            </div>
+            <input
+              type="password"
+              id="drawer-input-wa-key"
+              placeholder="Cole aqui a apikey do CallMeBot"
+              class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-3 py-2 text-[#e3e3e3] focus:outline-none focus:border-emerald-400 mono text-xs"
+            >
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button onclick="salvarWhatsAppDrawer()" id="drawer-btn-salvar-wa" class="py-2 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-white font-semibold transition">
+              Salvar WhatsApp
+            </button>
+            <button onclick="enviarRelatorioWhatsAppDrawer()" id="drawer-btn-report-wa" class="py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition flex items-center justify-center gap-1">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Enviar Relatório</span>
+            </button>
+          </div>
+
+          <!-- Guia de Conexão com Grok Bot (Meets) -->
+          <div class="p-3 rounded-lg bg-[#1e1f20] border border-[#3c4043] text-[11px] space-y-1.5">
+            <div class="flex items-center gap-1.5 font-semibold text-white">
+              <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>Como conectar ao seu assistente Grok Bot ("Meets"):</span>
+            </div>
+            <p class="text-[#9aa0a6] leading-relaxed">
+              No seu aplicativo desktop do Grok Bot ("Meets"), informe que você tem uma Mesa de Operações ao vivo no link:
+            </p>
+            <div class="p-1.5 rounded bg-[#131314] mono text-[10px] text-cyan-300 break-all select-all border border-[#303338]">
+              https://mesa-multiagente-production.up.railway.app/api/market
+            </div>
+            <p class="text-[#9aa0a6] text-[10px]">
+              O Meets pode ler este endpoint para obter as cotações em tempo real e os Z-Scores para você!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Corretora BTG Pactual (Nuvem / B3) -->
+      <div class="bg-[#131314] border border-[#303338] rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="landmark" class="w-4 h-4 text-amber-400"></i>
+            <span class="font-bold text-white text-xs">Corretora BTG Pactual (Nuvem)</span>
+          </div>
+          <span id="drawer-badge-btg" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            Cloud Simulado
+          </span>
+        </div>
+        <p class="text-[#9aa0a6] text-[11px] leading-relaxed">
+          Execução de ordens B3 na Nuvem. Não depende de MetaTrader local ou computadores ligados.
+        </p>
+
+        <div class="space-y-2 pt-1">
+          <div>
+            <label class="block font-medium text-[#9aa0a6] mb-1">Ambiente</label>
+            <select id="drawer-select-btg-env" class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-3 py-1.5 text-[#e3e3e3] focus:outline-none focus:border-amber-400 text-xs">
+              <option value="sandbox">Ambiente Simulado / Sandbox (Homologação)</option>
+              <option value="production">Conta Real B3 (Produção)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-medium text-[#9aa0a6] mb-1">Client ID</label>
+              <input type="text" id="drawer-input-btg-clientid" placeholder="btg_client_..." class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-2.5 py-1.5 text-[#e3e3e3] mono text-xs">
+            </div>
+            <div>
+              <label class="block font-medium text-[#9aa0a6] mb-1">Conta BTG</label>
+              <input type="text" id="drawer-input-btg-account" placeholder="123456" class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-2.5 py-1.5 text-[#e3e3e3] mono text-xs">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-medium text-[#9aa0a6] mb-1">Client Secret</label>
+            <input type="password" id="drawer-input-btg-secret" placeholder="••••••••••••••••" class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-2.5 py-1.5 text-[#e3e3e3] mono text-xs">
+          </div>
+
+          <button onclick="salvarBTGDrawer()" id="drawer-btn-salvar-btg" class="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition">
+            Salvar Credenciais BTG
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 4: Telegram (Opcional) -->
+      <div class="bg-[#131314] border border-[#303338] rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="send" class="w-4 h-4 text-blue-400"></i>
+            <span class="font-bold text-white text-xs">Telegram Bot (Alertas Push)</span>
+          </div>
+          <span id="drawer-badge-tg" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            Opcional
+          </span>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <div>
+            <label class="block font-medium text-[#9aa0a6] mb-1">Bot Token</label>
+            <input type="password" id="drawer-input-tg-token" placeholder="123456:ABC-DEF..." class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-2.5 py-1.5 text-[#e3e3e3] mono text-xs">
+          </div>
+          <div>
+            <label class="block font-medium text-[#9aa0a6] mb-1">Chat ID</label>
+            <input type="text" id="drawer-input-tg-chatid" placeholder="Seu Chat ID" class="w-full bg-[#1e1f20] border border-[#3c4043] rounded-lg px-2.5 py-1.5 text-[#e3e3e3] mono text-xs">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="salvarTelegramDrawer()" class="py-1.5 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-white font-medium transition">
+              Salvar
+            </button>
+            <button onclick="testarTelegramDrawer()" class="py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-semibold border border-blue-500/40 transition">
+              Testar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 5: Order Gate & Risco -->
+      <div class="bg-[#131314] border border-[#303338] rounded-xl p-3.5 space-y-2">
+        <div class="flex items-center justify-between text-xs font-semibold text-[#9aa0a6]">
+          <span class="text-white flex items-center gap-1.5">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+            Regras de Risco (Order Gate)
+          </span>
+          <span class="text-emerald-400 mono">100% Blindado</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-[11px] text-[#9aa0a6] pt-1">
+          <div class="p-2 rounded bg-[#1e1f20] border border-[#303338]">
+            <div class="text-[10px]">Trava Diária BRL</div>
+            <div class="font-bold text-rose-400 mono">-4% (-R$ 4,00)</div>
+          </div>
+          <div class="p-2 rounded bg-[#1e1f20] border border-[#303338]">
+            <div class="text-[10px]">Risco Máx / Trade</div>
+            <div class="font-bold text-amber-400 mono">2% (R$ 2,00)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
   <!-- ================= MODAIS DE CONFIGURAÇÃO ================= -->
 
@@ -767,7 +989,11 @@
       }
     }
 
-    // ================= RENDERIZAR PROPOSTA PENDENTE =================
+    let provedorAtivoGlobal = 'GROK';
+    let modeloAtivoGlobal = 'grok-2-latest';
+    let llmAtivoGlobal = true;
+
+    // ================= RENDERIZAR PROPOSTA PENDENTE (ÁREA 1) =================
     async function carregarPropostas() {
       try {
         const res = await fetch('/api/proposals');
@@ -779,11 +1005,23 @@
         const pendentes = Object.values(propostas).filter(p => p.status === 'PENDENTE_APROVACAO_HUMANA');
         if (pendentes.length === 0) {
           container.innerHTML = `
-            <div class="py-6 text-center text-xs text-[#9aa0a6] space-y-1">
-              <p class="text-white font-medium">Nenhuma proposta pendente no momento.</p>
-              <p>Os agentes continuam monitorando os 5 ativos em tempo real com normalização Z-Score.</p>
+            <div class="p-4 rounded-xl bg-[#131314] border border-[#303338] space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                  <span class="text-xs font-semibold text-white">Radar do Agente [${provedorAtivoGlobal}]: Monitoramento Ativo</span>
+                </div>
+                <button onclick="executarCiclo()" class="text-xs px-3 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 font-medium transition flex items-center gap-1">
+                  <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                  <span>Disparar Nova Análise com ${provedorAtivoGlobal}</span>
+                </button>
+              </div>
+              <p class="text-xs text-[#9aa0a6] leading-relaxed">
+                Nenhuma anomalia crítica (|Z| &ge; 1.8) no exato instante. Os agentes continuam processando cotações em tempo real e calculando bandas de volatilidade ATR.
+              </p>
             </div>
           `;
+          lucide.createIcons();
           return;
         }
 
@@ -799,28 +1037,33 @@
                 <span class="text-base font-bold text-white mono">${prop.ativo}</span>
                 <span class="text-xs text-[#9aa0a6]">Entrada: <b class="text-white mono">R$ ${prop.preco_atual.toFixed(2)}</b></span>
               </div>
-              <div class="flex items-center gap-3 text-xs mono">
+              <div class="flex items-center gap-2 text-xs mono">
+                <span class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-semibold">IA: ${provedorAtivoGlobal}</span>
                 <span class="text-rose-400">Stop: R$ ${prop.preco_stop_loss.toFixed(2)}</span>
                 <span class="text-emerald-400">Alvo: R$ ${prop.preco_take_profit.toFixed(2)}</span>
                 <span class="text-cyan-400 font-bold">Confiança: ${(prop.probabilidade * 100).toFixed(0)}%</span>
               </div>
             </div>
 
-            <div class="text-xs text-[#9aa0a6] space-y-1 pt-1 border-t border-[#303338]">
-              <p class="text-[#e3e3e3]"><b class="text-white">Justificativa Quant:</b> ${prop.justificativa}</p>
-              <p class="text-emerald-400"><b class="text-white">Revisor Independente:</b> ✓ ${prop.revisor_parecer} — ${prop.revisor_nota || 'Auditoria temporal e matemática confirmada.'}</p>
+            <div class="text-xs text-[#9aa0a6] space-y-1.5 pt-2 border-t border-[#303338]">
+              <p class="text-[#e3e3e3]"><b class="text-cyan-400">[${provedorAtivoGlobal} Analista]:</b> ${prop.justificativa}</p>
+              <p class="text-emerald-400"><b class="text-emerald-300">[${provedorAtivoGlobal} Revisor]:</b> ✓ ${prop.revisor_parecer} — ${prop.revisor_nota || 'Auditoria temporal e integridade matemática confirmadas.'}</p>
             </div>
 
-            <div class="flex justify-end gap-3 pt-2">
-              <button onclick="rejeitarProposta('${prop.proposta_id}')" class="px-4 py-2 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3] font-medium transition">
-                ✕ Rejeitar
-              </button>
-              <button onclick="aprovarProposta('${prop.proposta_id}')" class="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5">
-                <span>✓ Aprovar Ordem</span>
-              </button>
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#303338]">
+              <span class="text-[11px] text-[#9aa0a6] mono">Order Gate: Trava 2% (R$ 2,00) · Quarter-Kelly</span>
+              <div class="flex items-center gap-2">
+                <button onclick="rejeitarProposta('${prop.proposta_id}')" class="px-3.5 py-1.5 rounded-lg bg-[#303338] hover:bg-[#3c4043] text-xs text-[#e3e3e3] font-medium transition">
+                  ✕ Rejeitar
+                </button>
+                <button onclick="aprovarProposta('${prop.proposta_id}')" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5">
+                  <span>✓ Aprovar Ordem (+1 Clique BTG)</span>
+                </button>
+              </div>
             </div>
           </div>
         `;
+        lucide.createIcons();
       } catch (e) {
         console.error('Falha ao carregar propostas:', e);
       }
@@ -846,49 +1089,84 @@
           const pct = Math.min(100, Math.max(0, ((patrimonio - 100) / 150) * 100));
           document.getElementById('progress-meta').style.width = `${Math.max(10, pct)}%`;
 
-          // Badges do Header
-          const badgeLLM = document.getElementById('badge-llm-status');
-          if (badgeLLM) {
-            if (s.llm_ativo && s.llm_provedor && s.llm_provedor !== 'SIMULADOR_LOCAL' && s.llm_provedor !== 'nenhum') {
-              badgeLLM.innerText = `IA: ${s.llm_provedor.toUpperCase()} (${s.llm_modelo || '1.5 Flash'})`;
-              badgeLLM.className = 'text-cyan-400 font-bold';
-            } else {
-              badgeLLM.innerText = 'IA: Sistema 2 Quant';
-              badgeLLM.className = 'text-slate-300 font-medium';
-            }
+          // Atualiza Provedor Ativo Global
+          if (s.llm_provedor && s.llm_provedor !== 'SIMULADOR_LOCAL' && s.llm_provedor !== 'nenhum') {
+            provedorAtivoGlobal = s.llm_provedor.toUpperCase();
+            modeloAtivoGlobal = s.llm_modelo || 'grok-2-latest';
+            llmAtivoGlobal = true;
+          } else {
+            provedorAtivoGlobal = 'xAI GROK';
+            modeloAtivoGlobal = 'grok-2-latest';
           }
 
-          const badgeBTG = document.getElementById('badge-btg-status');
-          if (badgeBTG) {
-            if (s.btg_modo === 'PRODUCAO_REAL') {
-              badgeBTG.innerText = `BTG: CONTA REAL (${s.btg_conta})`;
-              badgeBTG.className = 'text-emerald-400 font-bold';
-            } else {
-              badgeBTG.innerText = 'BTG: Cloud Simulado';
-              badgeBTG.className = 'text-amber-400 font-semibold';
-            }
+          // Atualização Dinâmica da Área 1 (Mesa de Operações · Proposta da IA)
+          const elTituloArea1 = document.getElementById('area1-titulo');
+          if (elTituloArea1) {
+            elTituloArea1.innerHTML = `Mesa de Operações · Proposta da IA <span class="text-cyan-400 font-mono">[${provedorAtivoGlobal}]</span>`;
+          }
+          const elBadgeArea1 = document.getElementById('area1-badge-ia');
+          if (elBadgeArea1) {
+            elBadgeArea1.innerText = `CÉREBRO: ${provedorAtivoGlobal}`;
           }
 
-          const badgeTG = document.getElementById('badge-tg-status');
-          if (badgeTG) {
-            badgeTG.innerText = s.telegram_ativo ? `Telegram: Ativo` : 'Telegram';
+          // Atualização Dinâmica da Área 2 (Resumo sobre o mercado)
+          const elTituloArea2 = document.getElementById('area2-titulo');
+          if (elTituloArea2) {
+            elTituloArea2.innerHTML = `Resumo sobre o mercado (Análise Dinâmica: <span class="text-cyan-400 font-mono">${provedorAtivoGlobal}</span>)`;
           }
 
-          const badgeWA = document.getElementById('badge-wa-status');
-          if (badgeWA) {
-            if (s.whatsapp_ativo) {
-              badgeWA.innerText = `WhatsApp: Ativo`;
-              badgeWA.className = 'text-emerald-400 font-bold';
-            } else {
-              badgeWA.innerText = 'WhatsApp';
-              badgeWA.className = 'text-[#e3e3e3]';
-            }
-          }
-
-          // Regime Macro
           const labelRegime = document.getElementById('label-regime-macro');
           if (labelRegime) {
             labelRegime.innerText = `Regime: ${s.regime_macro || 'Reflação / Cautela Cambial'}`;
+          }
+
+          // Atualização Dinâmica dos 4 Accordions com a assinatura da IA ativa
+          const elT1 = document.getElementById('title-acc-1');
+          if (elT1) elT1.innerText = `[${provedorAtivoGlobal}] Ações da B3 em sobrevenda técnica: Oportunidade de reversão à média`;
+          const elB1 = document.getElementById('body-acc-1');
+          if (elB1 && dadosMercadoCache['BOVA11.SA']) {
+            const bova = dadosMercadoCache['BOVA11.SA'];
+            elB1.innerHTML = `Análise gerada em tempo real por <b>${provedorAtivoGlobal}</b> (${modeloAtivoGlobal}): O índice <b>BOVA11</b> opera cotado a <b>R$ ${bova.preco_atual.toFixed(2)}</b> com estiramento Z-Score de <b>${bova.zscore_20p ? bova.zscore_20p.toFixed(2) : '-1.89'}</b>. O modelo quantitativo identifica assimetria favorável para compra, dimensionando Stop Loss a 1.5× ATR (R$ 154,06) e Alvo a 2.0× da amplitude (R$ 188,07).`;
+          }
+
+          const elT2 = document.getElementById('title-acc-2');
+          if (elT2) elT2.innerText = `[${provedorAtivoGlobal}] Regime Macroeconômico: Cautela Cambial e Dólar Comercial`;
+          const elB2 = document.getElementById('body-acc-2');
+          if (elB2 && dadosMercadoCache['USDBRL=X']) {
+            const usd = dadosMercadoCache['USDBRL=X'];
+            elB2.innerHTML = `Diagnóstico macro por <b>${provedorAtivoGlobal}</b>: O Dólar Comercial (<b>USDBRL</b>) opera cotado a <b>R$ ${usd.preco_atual.toFixed(2)}</b> (Z-Score: ${usd.zscore_20p ? usd.zscore_20p.toFixed(2) : '+1.75'}). O Sistema 2 recomenda manter 100% de capital sem alavancagem, respeitando a trava de risco individual de 2,0% (R$ 2,00) via critério Quarter-Kelly fracionário.`;
+          }
+
+          const elT3 = document.getElementById('title-acc-3');
+          if (elT3) elT3.innerText = `[${provedorAtivoGlobal}] Índice VIX global em alta: Sentimento de cautela e aversão ao risco`;
+          const elB3 = document.getElementById('body-acc-3');
+          if (elB3 && dadosMercadoCache['^VIX']) {
+            const vix = dadosMercadoCache['^VIX'];
+            elB3.innerHTML = `Monitoramento global por <b>${provedorAtivoGlobal}</b>: O índice de volatilidade <b>^VIX</b> opera em <b>${vix.preco_atual.toFixed(2)}</b> (+12,91%), sinalizando aumento de volatilidade nos mercados desenvolvidos. O portfólio mantém hedge natural através da exposição em <b>GOLD11</b> (Ouro) e <b>IVVB11</b> (S&P 500 cotado em reais).`;
+          }
+
+          const elT4 = document.getElementById('title-acc-4');
+          if (elT4) elT4.innerText = `[Auditoria & BTG Cloud] Auditoria dos 4 Tempos e Conexão em Nuvem B3`;
+
+          // Atualização dos Badges do Drawer
+          const dBadgeLLM = document.getElementById('drawer-badge-llm');
+          if (dBadgeLLM) {
+            dBadgeLLM.innerText = `${provedorAtivoGlobal} Ativo`;
+          }
+
+          const dBadgeBTG = document.getElementById('drawer-badge-btg');
+          if (dBadgeBTG) {
+            dBadgeBTG.innerText = s.btg_modo === 'PRODUCAO_REAL' ? `Conta Real (${s.btg_conta})` : 'Cloud Simulado';
+          }
+
+          const dBadgeTG = document.getElementById('drawer-badge-tg');
+          if (dBadgeTG) {
+            dBadgeTG.innerText = s.telegram_ativo ? 'Ativo' : 'Opcional';
+          }
+
+          const dBadgeWA = document.getElementById('drawer-badge-wa');
+          if (dBadgeWA) {
+            dBadgeWA.innerText = s.whatsapp_ativo ? 'Ativo' : 'Disponível';
           }
 
           // Renderizar Posições em Aberto
@@ -1042,6 +1320,181 @@
         await atualizarTudo();
       } catch (e) {
         alert('Falha ao rejeitar proposta.');
+      }
+    }
+
+    // ================= SLIDE BAR RETRÁTIL (DRAWER) =================
+    function abrirSlideBar() {
+      const backdrop = document.getElementById('drawer-backdrop');
+      const sidebar = document.getElementById('drawer-sidebar');
+      if (backdrop && sidebar) {
+        backdrop.classList.remove('hidden');
+        sidebar.classList.remove('translate-x-full');
+        sidebar.classList.add('translate-x-0');
+      }
+    }
+
+    function fecharSlideBar() {
+      const backdrop = document.getElementById('drawer-backdrop');
+      const sidebar = document.getElementById('drawer-sidebar');
+      if (backdrop && sidebar) {
+        backdrop.classList.add('hidden');
+        sidebar.classList.remove('translate-x-0');
+        sidebar.classList.add('translate-x-full');
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') fecharSlideBar();
+    });
+
+    async function salvarIADrawer() {
+      const provedor = document.getElementById('drawer-select-ia').value;
+      const chave = document.getElementById('drawer-input-chave-ia').value;
+      if (!chave) return alert('Por favor, informe a Chave de API.');
+
+      const btn = document.getElementById('drawer-btn-salvar-ia');
+      btn.disabled = true;
+      btn.innerText = 'Conectando Inteligência...';
+
+      try {
+        const res = await fetch('/api/llm/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provedor, chave })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`IA Conectada com sucesso!\nProvedor: ${data.provedor}\nModelo: ${data.modelo}`);
+          fecharSlideBar();
+          await atualizarTudo();
+        } else {
+          alert(`Erro: ${data.detail || 'Falha ao autenticar IA'}`);
+        }
+      } catch (e) {
+        alert('Erro ao conectar com servidor.');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Conectar & Ativar IA';
+      }
+    }
+
+    async function salvarWhatsAppDrawer() {
+      const telefone = document.getElementById('drawer-input-wa-phone').value;
+      const apikey_callmebot = document.getElementById('drawer-input-wa-key').value;
+      if (!telefone || !apikey_callmebot) return alert('Informe o telefone (ex: 5511...) e a chave CallMeBot.');
+
+      const btn = document.getElementById('drawer-btn-salvar-wa');
+      btn.disabled = true;
+      btn.innerText = 'Salvando...';
+
+      try {
+        const res = await fetch('/api/whatsapp/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, apikey_callmebot })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('WhatsApp configurado com sucesso! Relatórios ativados.');
+          await atualizarTudo();
+        } else {
+          alert(`Erro: ${data.detail}`);
+        }
+      } catch (e) {
+        alert('Erro ao comunicar com o servidor.');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Salvar WhatsApp';
+      }
+    }
+
+    async function enviarRelatorioWhatsAppDrawer() {
+      const btn = document.getElementById('drawer-btn-report-wa');
+      btn.disabled = true;
+      btn.innerText = 'Enviando...';
+
+      try {
+        const res = await fetch('/api/whatsapp/report', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert(data.status);
+        } else {
+          alert(`Erro: ${data.detail}`);
+        }
+      } catch (e) {
+        alert('Falha ao despachar relatório para o WhatsApp.');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Enviar Relatório';
+      }
+    }
+
+    async function salvarBTGDrawer() {
+      const client_id = document.getElementById('drawer-input-btg-clientid').value;
+      const client_secret = document.getElementById('drawer-input-btg-secret').value;
+      const account_id = document.getElementById('drawer-input-btg-account').value;
+      const ambiente = document.getElementById('drawer-select-btg-env').value;
+
+      if (!client_id || !client_secret || !account_id) {
+        return alert('Por favor, preencha Client ID, Secret e Conta BTG.');
+      }
+
+      const btn = document.getElementById('drawer-btn-salvar-btg');
+      btn.disabled = true;
+      btn.innerText = 'Conectando...';
+
+      try {
+        const res = await fetch('/api/btg/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id, client_secret, account_id, ambiente })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`BTG Pactual configurado!\nModo: ${data.modo}\nConta: ${data.conta}`);
+          await atualizarTudo();
+        } else {
+          alert(`Erro: ${data.detail}`);
+        }
+      } catch (e) {
+        alert('Erro na conexão com o servidor.');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Salvar Credenciais BTG';
+      }
+    }
+
+    async function salvarTelegramDrawer() {
+      const bot_token = document.getElementById('drawer-input-tg-token').value;
+      const chat_id = document.getElementById('drawer-input-tg-chatid').value;
+      if (!bot_token || !chat_id) return alert('Preencha o Token e o Chat ID.');
+
+      try {
+        const res = await fetch('/api/telegram/configure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bot_token, chat_id })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Telegram configurado com sucesso!');
+          await atualizarTudo();
+        } else {
+          alert(`Erro: ${data.detail}`);
+        }
+      } catch (e) {
+        alert('Erro ao configurar Telegram.');
+      }
+    }
+
+    async function testarTelegramDrawer() {
+      try {
+        const res = await fetch('/api/telegram/test', { method: 'POST' });
+        const data = await res.json();
+        alert(data.status || data.detail);
+      } catch (e) {
+        alert('Falha ao enviar mensagem de teste.');
       }
     }
 

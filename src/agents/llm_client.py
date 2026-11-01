@@ -30,35 +30,55 @@ class LLMClient:
         self.provedor_ativo, self.chave_api, self.modelo_padrao = self._detectar_provedor()
 
     def _detectar_provedor(self) -> Tuple[str, Optional[str], str]:
-        # 1. Google Gemini
-        gemini_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        if gemini_key:
-            modelo = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
-            return "gemini", gemini_key, modelo
+        provedor_preferido = os.environ.get("LLM_PROVIDER", "").lower()
 
-        # 2. Anthropic Claude
-        claude_key = os.environ.get("ANTHROPIC_API_KEY")
-        if claude_key:
-            modelo = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
-            return "anthropic", claude_key, modelo
+        # Prioridade se houver provedor explicitamente configurado
+        if provedor_preferido in ("grok", "xai"):
+            grok_key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
+            if grok_key:
+                return "grok", grok_key, os.environ.get("GROK_MODEL", "grok-2-latest")
+        elif provedor_preferido == "gemini":
+            gemini_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+            if gemini_key:
+                return "gemini", gemini_key, os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+        elif provedor_preferido == "anthropic":
+            claude_key = os.environ.get("ANTHROPIC_API_KEY")
+            if claude_key:
+                return "anthropic", claude_key, os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+        elif provedor_preferido == "openai":
+            openai_key = os.environ.get("OPENAI_API_KEY")
+            if openai_key:
+                return "openai", openai_key, os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        elif provedor_preferido == "groq":
+            groq_key = os.environ.get("GROQ_API_KEY")
+            if groq_key:
+                return "groq", groq_key, os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-        # 3. OpenAI
-        openai_key = os.environ.get("OPENAI_API_KEY")
-        if openai_key:
-            modelo = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-            return "openai", openai_key, modelo
-
-        # 4. xAI Grok
+        # Detecção por variáveis de ambiente sem preferência explícita
+        # 1. xAI Grok
         grok_key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
         if grok_key:
-            modelo = os.environ.get("GROK_MODEL", "grok-2-latest")
-            return "grok", grok_key, modelo
+            return "grok", grok_key, os.environ.get("GROK_MODEL", "grok-2-latest")
+
+        # 2. Google Gemini
+        gemini_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if gemini_key:
+            return "gemini", gemini_key, os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+
+        # 3. Anthropic Claude
+        claude_key = os.environ.get("ANTHROPIC_API_KEY")
+        if claude_key:
+            return "anthropic", claude_key, os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+
+        # 4. OpenAI
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if openai_key:
+            return "openai", openai_key, os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
         # 5. Groq
         groq_key = os.environ.get("GROQ_API_KEY")
         if groq_key:
-            modelo = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-            return "groq", groq_key, modelo
+            return "groq", groq_key, os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
         return "nenhum", None, "simulador_deterministico"
 
@@ -74,24 +94,48 @@ class LLMClient:
             ativo=False,
             provedor="SIMULADOR_LOCAL",
             modelo="regras_deterministicas",
-            detalhes="Nenhuma chave detectada (GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY). Operando no modo contingência.",
+            detalhes="Nenhuma chave detectada (GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, XAI_API_KEY). Operando no modo contingência.",
         )
 
     def reconfigurar_chave(self, provedor: str, chave: str, modelo: Optional[str] = None) -> None:
-        if provedor.lower() == "gemini":
-            os.environ["GEMINI_API_KEY"] = chave
-        elif provedor.lower() == "anthropic":
-            os.environ["ANTHROPIC_API_KEY"] = chave
-        elif provedor.lower() == "openai":
-            os.environ["OPENAI_API_KEY"] = chave
-        elif provedor.lower() in ("grok", "xai"):
-            os.environ["GROK_API_KEY"] = chave
-            os.environ["XAI_API_KEY"] = chave
-            if modelo:
-                os.environ["GROK_MODEL"] = modelo
-        elif provedor.lower() == "groq":
-            os.environ["GROQ_API_KEY"] = chave
-        self.provedor_ativo, self.chave_api, self.modelo_padrao = self._detectar_provedor()
+        provedor_clean = provedor.strip().lower()
+        chave_clean = chave.strip()
+        os.environ["LLM_PROVIDER"] = provedor_clean
+
+        if provedor_clean in ("grok", "xai"):
+            self.provedor_ativo = "grok"
+            self.chave_api = chave_clean
+            self.modelo_padrao = modelo or os.environ.get("GROK_MODEL", "grok-2-latest")
+            os.environ["XAI_API_KEY"] = chave_clean
+            os.environ["GROK_API_KEY"] = chave_clean
+            os.environ["GROK_MODEL"] = self.modelo_padrao
+        elif provedor_clean == "gemini":
+            self.provedor_ativo = "gemini"
+            self.chave_api = chave_clean
+            self.modelo_padrao = modelo or os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+            os.environ["GEMINI_API_KEY"] = chave_clean
+            os.environ["GEMINI_MODEL"] = self.modelo_padrao
+        elif provedor_clean == "anthropic":
+            self.provedor_ativo = "anthropic"
+            self.chave_api = chave_clean
+            self.modelo_padrao = modelo or os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+            os.environ["ANTHROPIC_API_KEY"] = chave_clean
+            os.environ["ANTHROPIC_MODEL"] = self.modelo_padrao
+        elif provedor_clean == "openai":
+            self.provedor_ativo = "openai"
+            self.chave_api = chave_clean
+            self.modelo_padrao = modelo or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+            os.environ["OPENAI_API_KEY"] = chave_clean
+            os.environ["OPENAI_MODEL"] = self.modelo_padrao
+        elif provedor_clean == "groq":
+            self.provedor_ativo = "groq"
+            self.chave_api = chave_clean
+            self.modelo_padrao = modelo or os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+            os.environ["GROQ_API_KEY"] = chave_clean
+            os.environ["GROQ_MODEL"] = self.modelo_padrao
+
+        # Força atualização dos campos
+        os.environ["LLM_PROVIDER"] = self.provedor_ativo
 
     def gerar_json(self, prompt_sistema: str, prompt_usuario: str) -> Optional[Dict[str, Any]]:
         """
