@@ -1,27 +1,32 @@
 """
-Coletor de Dados de Mercado para a Cesta Multimercado (Opção C).
-Ativos: BOVA11.SA (Ações B3), GOLD11.SA (Ouro), IVVB11.SA (S&P 500 BRL), USDBRL=X (Dólar).
+Coletor de dados reais da cesta multimercado.
 
-Calcula em tempo real e de forma puramente determinística:
-- Z-Score (normalização)
-- ATR (Average True Range para posicionamento de Stop Loss)
-- Retorno recente e volatilidade
-Preserva os 4 tempos: Referência, Evento, Publicação e Coleta.
+Ativos: BOVA11.SA, IVVB11.SA, GOLD11.SA, USDBRL=X e ^VIX.
+
+Preço, variação, Z-Score (20 pregões), ATR (14), volatilidade (20) e sparkline
+saem do OHLC diário devolvido por uma fonte real. O horário de referência é o
+carimbo do negócio (ou do candle diário) nessa fonte. Se nenhuma fonte entregar
+histórico suficiente, o ativo fica de fora da cesta — o coletor não completa
+com preço sintético.
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import warnings
+
 import numpy as np
-import pandas as pd
-import yfinance as yf
+
+from src.collectors.market_sources import (
+    FONTES_REAIS,
+    SerieMercado,
+    provedores_para,
+)
+from src.finance.math_engine import calcular_atr, calcular_zscore
 
 warnings.filterwarnings("ignore")
-
-from src.finance.math_engine import calcular_zscore, calcular_atr
 
 
 @dataclass
@@ -41,6 +46,10 @@ class MetricasAtivo:
     categoria: str = "B3"
     variacao_nominal: float = 0.0
     sparkline: Optional[List[float]] = None
+    fonte: str = ""
+    disponivel: bool = True
+    dados_stale: bool = False
+    aviso: Optional[str] = None
 
 
 METADADOS_ATIVOS: Dict[str, Dict[str, str]] = {
@@ -51,95 +60,143 @@ METADADOS_ATIVOS: Dict[str, Dict[str, str]] = {
     "^VIX": {"nome": "CBOE Volatilidade", "categoria": "Macro"},
 }
 
+TICKERS_CESTA: List[str] = list(METADADOS_ATIVOS.keys())
+
+
+def _casas_decimais(ticker: str) -> int:
+    return 4 if ticker == "USDBRL=X" else 2
+
+
+def metricas_de_serie(serie: SerieMercado, coletado_em: Optional[datetime] = None) -> MetricasAtivo:
+    """Calcula as métricas da API a partir de uma série real já validada."""
+    if serie.fonte not in FONTES_REAIS:
+        raise ValueError(f"Fonte desconhecida para {serie.ticker}: {serie.fonte}")
+
+    janela = list(serie.barras[-20:])
+    if len(janela) < 20:
+        raise ValueError(f"Histórico insuficiente para {serie.ticker}.")
+
+    closes = [barra.close for barra in janela]
+    highs = [barra.high for barra in janela]
+    lows = [barra.low for barra in janela]
+    zscore = float(calcular_zscore(closes, serie.preco_atual))
+    atr = float(calcular_atr(highs, lows, closes, periodo=14))
+    retornos = np.diff(closes) / np.asarray(closes[:-1], dtype=float)
+    volatilidade = float(np.std(retornos, ddof=1))
+
+    casas = _casas_decimais(serie.ticker)
+    preco = round(float(serie.preco_atual), casas)
+    anterior = round(float(serie.preco_fechamento_anterior), casas)
+    if anterior <= 0:
+        raise ValueError(f"Fechamento anterior inválido para {serie.ticker}.")
+
+    agora = (coletado_em or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    carimbo_mercado = serie.instante_mercado.astimezone(timezone.utc).isoformat()
+    meta = METADADOS_ATIVOS.get(serie.ticker, {"nome": serie.ticker, "categoria": "B3"})
+    sparkline = [round(float(barra.close), casas) for barra in serie.barras[-15:]]
+    if sparkline:
+        sparkline[-1] = preco
+
+    return MetricasAtivo(
+        ticker=serie.ticker,
+        preco_atual=preco,
+        preco_fechamento_anterior=anterior,
+        variacao_dia_pct=(preco / anterior) - 1.0,
+        zscore_20p=round(zscore, 4),
+        atr_14p=round(atr, 4),
+        volatilidade_20p=round(volatilidade, 6),
+        tempo_referencia=carimbo_mercado,
+        tempo_evento=carimbo_mercado,
+        tempo_publicacao=carimbo_mercado,
+        tempo_coleta=agora.isoformat(),
+        nome=meta["nome"],
+        categoria=meta["categoria"],
+        variacao_nominal=round(preco - anterior, casas),
+        sparkline=sparkline,
+        fonte=serie.fonte,
+        disponivel=True,
+        dados_stale=False,
+        aviso=None,
+    )
+
 
 class ColetorMercado:
     def __init__(self, tickers: Optional[List[str]] = None):
-        self.tickers = tickers or [
-            "BOVA11.SA",
-            "IVVB11.SA",
-            "GOLD11.SA",
-            "USDBRL=X",
-            "^VIX",
-        ]
+        self.tickers = list(tickers or TICKERS_CESTA)
+        self.erros: Dict[str, str] = {}
 
-    def coletar_metricas_ativo(self, ticker: str, periodo: str = "3mo") -> Optional[MetricasAtivo]:
-        agora_utc = datetime.now(timezone.utc).isoformat()
-        try:
-            # Baixa histórico com yfinance para o ativo individual (evitando locks no sqlite)
-            df = yf.download(ticker, period=periodo, interval="1d", progress=False, auto_adjust=True)
-            if df.empty or len(df) < 20:
-                return None
+    def coletar_metricas_ativo(self, ticker: str, periodo: str = "6mo") -> Optional[MetricasAtivo]:
+        """
+        Tenta as fontes reais na ordem definida em `provedores_para`.
 
-            # Normalização de multi-index de colunas se presente
-            if isinstance(df.columns, pd.MultiIndex):
-                df = df.xs(ticker, level=1, axis=1) if ticker in df.columns.levels[1] else df
-
-            closes = df["Close"].dropna().values.flatten().tolist()
-            highs = df["High"].dropna().values.flatten().tolist()
-            lows = df["Low"].dropna().values.flatten().tolist()
-
-            if len(closes) < 20:
-                return None
-
-            preco_atual = float(closes[-1])
-            preco_anterior = float(closes[-2])
-            variacao = (preco_atual / preco_anterior) - 1.0
-            variacao_nominal = preco_atual - preco_anterior
-
-            # Cálculos determinísticos
-            zscore = calcular_zscore(closes[-20:], preco_atual)
-            atr = calcular_atr(highs[-20:], lows[-20:], closes[-20:], periodo=14)
-
-            retornos = np.diff(closes[-20:]) / closes[-20:-1]
-            vol_20p = float(np.std(retornos, ddof=1))
-
-            data_evento = str(df.index[-1].date())
-
-            # Sparkline suave dos últimos 15 fechamentos
-            sparkline = [round(float(p), 2) for p in closes[-15:]]
-            meta = METADADOS_ATIVOS.get(ticker, {"nome": ticker, "categoria": "B3"})
-
-            return MetricasAtivo(
-                ticker=ticker,
-                preco_atual=preco_atual,
-                preco_fechamento_anterior=preco_anterior,
-                variacao_dia_pct=variacao,
-                zscore_20p=zscore,
-                atr_14p=atr,
-                volatilidade_20p=vol_20p,
-                tempo_referencia=data_evento,
-                tempo_evento=f"{data_evento}T17:00:00Z",
-                tempo_publicacao=f"{data_evento}T18:00:00Z",
-                tempo_coleta=agora_utc,
-                nome=meta["nome"],
-                categoria=meta["categoria"],
-                variacao_nominal=round(variacao_nominal, 4),
-                sparkline=sparkline,
-            )
-        except Exception as e:
-            print(f"[Aviso] Falha ao coletar dados para {ticker}: {e}")
-            return None
+        `periodo` permanece na assinatura por compatibilidade; cada fonte pede
+        seis meses, o bastante para Z-Score 20 e ATR 14.
+        """
+        del periodo  # a janela mínima é garantida pelas fontes (6 meses / 90 dias)
+        erros: List[str] = []
+        for nome, buscar in provedores_para(ticker):
+            try:
+                serie = buscar(ticker)
+            except Exception as exc:  # noqa: BLE001 - registra e segue para a reserva
+                erros.append(f"{nome}: {exc}")
+                continue
+            if serie is None:
+                erros.append(f"{nome}: sem histórico suficiente")
+                continue
+            try:
+                return metricas_de_serie(serie)
+            except Exception as exc:  # noqa: BLE001
+                erros.append(f"{nome}: {exc}")
+        self.erros[ticker] = " | ".join(erros)[:240] if erros else "nenhuma fonte configurada"
+        print(f"[Aviso] Falha ao coletar dados reais para {ticker}: {self.erros[ticker]}")
+        return None
 
     def coletar_cesta_completa(self) -> Dict[str, MetricasAtivo]:
-        resultados = {}
-        for t in self.tickers:
-            metrica = self.coletar_metricas_ativo(t)
-            if metrica:
-                resultados[t] = metrica
+        self.erros = {}
+        resultados: Dict[str, MetricasAtivo] = {}
+        for ticker in self.tickers:
+            metrica = self.coletar_metricas_ativo(ticker)
+            if metrica is not None:
+                resultados[ticker] = metrica
         return resultados
 
-    def salvar_snapshot(self, destino: str = "data/snapshots/ultimo_mercado.json") -> Path:
+    def salvar_snapshot(
+        self,
+        destino: str = "data/snapshots/ultimo_mercado.json",
+        cesta: Optional[Dict[str, MetricasAtivo]] = None,
+    ) -> Path:
         caminho = Path(destino)
         caminho.parent.mkdir(parents=True, exist_ok=True)
-        cesta = self.coletar_cesta_completa()
-        dados_serializaveis = {k: asdict(v) for k, v in cesta.items()}
-        with open(caminho, "w", encoding="utf-8") as f:
-            json.dump(dados_serializaveis, f, indent=2, ensure_ascii=False)
+        if cesta is None:
+            cesta = self.coletar_cesta_completa()
+
+        existente: Dict[str, Any] = {}
+        if caminho.exists():
+            try:
+                bruto = json.loads(caminho.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                bruto = {}
+            if isinstance(bruto, dict):
+                existente = {
+                    ticker: item
+                    for ticker, item in bruto.items()
+                    if isinstance(item, dict) and item.get("fonte") in FONTES_REAIS
+                }
+
+        for ticker, metrica in (cesta or {}).items():
+            item = asdict(metrica) if hasattr(metrica, "__dataclass_fields__") else dict(metrica)
+            if item.get("fonte") not in FONTES_REAIS or not item.get("preco_atual"):
+                continue
+            existente[ticker] = item
+        if existente:
+            caminho.write_text(json.dumps(existente, indent=2, ensure_ascii=False), encoding="utf-8")
         return caminho
 
 
 if __name__ == "__main__":
     coletor = ColetorMercado()
-    print("Coletando métricas determinísticas para a cesta multimercado...")
+    print("Coletando cotações reais da cesta multimercado...")
     snapshot = coletor.salvar_snapshot()
-    print(f"Snapshot gravado com sucesso em: {snapshot}")
+    print(f"Snapshot gravado em: {snapshot}")
+    if coletor.erros:
+        print(f"Falhas: {coletor.erros}")

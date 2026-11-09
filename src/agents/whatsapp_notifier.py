@@ -117,12 +117,23 @@ class WhatsAppNotifier:
         
         linhas_ativos = []
         for ticker, dados in cotacoes.items():
-            preco = dados.get("preco_atual", 0.0)
-            var = dados.get("variacao_dia_pct", 0.0) * 100
-            sinal = "+" if var >= 0 else ""
-            zscore = dados.get("zscore_20p", 0.0)
             nome = dados.get("nome", ticker)
-            linhas_ativos.append(f"• *{ticker}* ({nome}): R$ {preco:.2f} ({sinal}{var:.2f}%) | Z: {zscore:.2f}")
+            preco = dados.get("preco_atual")
+            if dados.get("disponivel") is False or not isinstance(preco, (int, float)):
+                motivo = dados.get("aviso") or "fonte sem resposta"
+                linhas_ativos.append(f"• *{ticker}* ({nome}): cotação indisponível ({motivo})")
+                continue
+            variacao = dados.get("variacao_dia_pct")
+            if not isinstance(variacao, (int, float)):
+                variacao = 0.0
+            var = variacao * 100
+            sinal = "+" if var >= 0 else ""
+            zscore = dados.get("zscore_20p")
+            z_txt = f"{zscore:.2f}" if isinstance(zscore, (int, float)) else "indisponível"
+            prefixo = "US$ " if ticker == "^VIX" else "R$ "
+            linhas_ativos.append(
+                f"• *{ticker}* ({nome}): {prefixo}{preco:.2f} ({sinal}{var:.2f}%) | Z: {z_txt}"
+            )
 
         bloco_ativos = "\n".join(linhas_ativos)
 
