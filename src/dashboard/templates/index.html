@@ -171,6 +171,7 @@
 
   <!-- ================= CARDS PRINCIPAIS COM SPARKLINES (LINHA SUPERIOR) ================= -->
   <section class="px-4 sm:px-6 pt-5 pb-2">
+    <div id="aviso-mercado" class="hidden mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"></div>
     <div id="grid-cards-sparkline" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       <!-- Preenchido dinamicamente pelo JavaScript com SVG Sparklines idênticos ao Google Finanças -->
     </div>
@@ -195,7 +196,7 @@
         <!-- Lista dinâmica de ativos com mini sparkline -->
         <div id="lista-watchlist" class="space-y-1">
           <!-- Renderizado via JS -->
-          <div class="text-center py-6 text-xs text-[#9aa0a6]">Carregando cotações ao vivo...</div>
+          <div class="text-center py-6 text-xs text-[#9aa0a6]">Carregando cotações reais...</div>
         </div>
       </div>
 
@@ -274,39 +275,39 @@
       <div class="bg-[#1e1f20] border border-[#303338] rounded-2xl p-5 space-y-3">
         <div class="flex items-center justify-between pb-2 border-b border-[#303338]">
           <h2 id="area2-titulo" class="text-base font-bold text-white">Resumo sobre o mercado (Análise Dinâmica: <span class="text-cyan-400 font-mono">GROK</span>)</h2>
-          <span class="text-xs text-[#9aa0a6]" id="label-regime-macro">Regime: Reflação / Cautela Cambial</span>
+          <span class="text-xs text-[#9aa0a6]" id="label-regime-macro">Regime: Aguardando cotações</span>
         </div>
 
         <!-- Accordion 1: B3 & Mean Reversion -->
         <div class="border-b border-[#303338]/60 pb-3">
           <button onclick="toggleAccordion('acc-1')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
-            <span id="title-acc-1">[GROK] Ações da B3 em sobrevenda técnica: Oportunidade de reversão à média</span>
+            <span id="title-acc-1">[GROK] BOVA11: aguardando cotação real</span>
             <i data-lucide="chevron-down" id="icon-acc-1" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-1" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p id="body-acc-1">O índice <b>BOVA11</b> atingiu normalização Z-Score de <b>-1.89</b> (estiramento estatístico de curto prazo). O modelo identifica assimetria favorável para compra, dimensionando Stop Loss a 1.5× ATR (R$ 154,06) e Alvo a 2.0× da amplitude (R$ 188,07).</p>
+            <p id="body-acc-1">O resumo de BOVA11 entra aqui com preço, variação, Z-Score de 20 pregões e ATR de 14, calculados sobre o histórico real.</p>
           </div>
         </div>
 
         <!-- Accordion 2: Macro Regime & Dólar -->
         <div class="border-b border-[#303338]/60 pb-3">
           <button onclick="toggleAccordion('acc-2')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
-            <span id="title-acc-2">[GROK] Regime Macroeconômico: Cautela Cambial e pressão nos juros de longo prazo</span>
+            <span id="title-acc-2">[GROK] Dólar comercial: aguardando cotação real</span>
             <i data-lucide="chevron-down" id="icon-acc-2" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-2" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p id="body-acc-2">O Dólar Comercial (<b>USDBRL</b>) opera em patamar elevado com Z-Score de <b>+1.75</b>. O modelo de Sistema 2 recomenda manter 100% de capital sem alavancagem, respeitando a trava de risco individual de 2,0% (R$ 2,00) via critério Quarter-Kelly fracionário.</p>
+            <p id="body-acc-2">O câmbio USD/BRL entra aqui com o preço e o Z-Score observados. A trava de risco individual segue em 2,0% (R$ 2,00), via Quarter-Kelly.</p>
           </div>
         </div>
 
         <!-- Accordion 3: VIX & Volatilidade Global -->
         <div class="border-b border-[#303338]/60 pb-3">
           <button onclick="toggleAccordion('acc-3')" class="w-full flex items-center justify-between text-left text-xs sm:text-sm font-semibold text-[#e3e3e3] hover:text-white py-1">
-            <span id="title-acc-3">[GROK] Índice VIX global em alta: Sentimento de cautela e aversão ao risco</span>
+            <span id="title-acc-3">[GROK] VIX: aguardando cotação real</span>
             <i data-lucide="chevron-down" id="icon-acc-3" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-3" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p id="body-acc-3">O CBOE VIX opera em <b>19.42 (+12,91%)</b>, sinalizando aumento de volatilidade nos mercados desenvolvidos. O portfólio mantém hedge natural através da exposição em <b>GOLD11</b> (Ouro físico) e <b>IVVB11</b> (S&P 500 cotado em reais).</p>
+            <p id="body-acc-3">O VIX, o GOLD11 e o IVVB11 entram aqui com a variação do dia vinda da fonte de mercado.</p>
           </div>
         </div>
 
@@ -317,7 +318,7 @@
             <i data-lucide="chevron-down" id="icon-acc-4" class="w-4 h-4 text-[#9aa0a6] transition-transform duration-200"></i>
           </button>
           <div id="acc-4" class="hidden mt-2 text-xs text-[#9aa0a6] leading-relaxed pl-1 space-y-1">
-            <p id="body-acc-4">Todas as decisões do Order Gate registram os 4 carimbos imutáveis: <b>Referência</b> (pregão B3), <b>Evento</b> (variação de preço), <b>Publicação</b> (geração da proposta) e <b>Coleta</b> (auditoria de latência). O gateway BTG Cloud encaminha as ordens diretamente ao pregão sem necessidade de computadores locais.</p>
+            <p id="body-acc-4">Referência, evento e publicação usam o horário do negócio na fonte. Coleta é o instante em que o servidor leu essa fonte. Com a fonte fora do ar, o card fica indisponível ou marcado como desatualizado, com a última coleta real.</p>
           </div>
         </div>
       </div>
@@ -831,10 +832,130 @@
     }
 
     // ================= FORMATAÇÃO DE PREÇO =================
+    function valorNumerico(valor) {
+      return typeof valor === 'number' && !Number.isNaN(valor);
+    }
+
+    function cotacaoUtil(item) {
+      return !!(item && item.disponivel !== false && valorNumerico(item.preco_atual));
+    }
+
+    function escaparHtml(texto) {
+      return String(texto ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
     function formatarPreco(ticker, preco) {
+      if (!valorNumerico(preco)) return 'indisponível';
       if (ticker === '^VIX') return preco.toFixed(2);
-      if (ticker === 'USDBRL=X') return `R$ ${preco.toFixed(2)}`;
-      return `R$ ${preco.toFixed(2)}`;
+      return `R$ ${preco.toFixed(ticker === 'USDBRL=X' ? 4 : 2)}`;
+    }
+
+    function formatarZ(valor) {
+      if (!valorNumerico(valor)) return 'indisponível';
+      const sinal = valor > 0 ? '+' : '';
+      return `${sinal}${valor.toFixed(2)}`;
+    }
+
+    function formatarPctFracao(valor) {
+      if (!valorNumerico(valor)) return 'indisponível';
+      const sinal = valor >= 0 ? '+' : '';
+      return `${sinal}${(valor * 100).toFixed(2)}%`;
+    }
+
+    function formatarReferencia(iso) {
+      if (!iso) return '';
+      const data = new Date(iso);
+      if (Number.isNaN(data.getTime())) return String(iso);
+      return data.toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function atualizarAvisoMercado(mercado) {
+      const el = document.getElementById('aviso-mercado');
+      if (!el) return;
+      const itens = Object.values(mercado || {});
+      const alertas = itens.filter((item) => !cotacaoUtil(item) || item.dados_stale);
+      if (!alertas.length) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+      }
+      const partes = alertas.map((item) => {
+        const nome = (item.ticker || 'ativo').replace('.SA', '');
+        const estado = cotacaoUtil(item) ? 'desatualizado' : 'indisponível';
+        return `${nome} ${estado}`;
+      });
+      el.classList.remove('hidden');
+      el.textContent = `Fonte de mercado: ${partes.join(' · ')}. Card desatualizado mostra a última coleta real; card indisponível fica sem preço.`;
+    }
+
+    function atualizarResumoMercado() {
+      const prov = provedorAtivoGlobal;
+      const bova = dadosMercadoCache['BOVA11.SA'];
+      const usd = dadosMercadoCache['USDBRL=X'];
+      const vix = dadosMercadoCache['^VIX'];
+      const gold = dadosMercadoCache['GOLD11.SA'];
+      const ivvb = dadosMercadoCache['IVVB11.SA'];
+
+      const elT1 = document.getElementById('title-acc-1');
+      const elB1 = document.getElementById('body-acc-1');
+      if (elT1 && elB1) {
+        if (!cotacaoUtil(bova)) {
+          elT1.textContent = `[${prov}] BOVA11: cotação indisponível`;
+          elB1.textContent = (bova && bova.aviso) || 'A fonte não devolveu histórico suficiente para BOVA11.';
+        } else {
+          elT1.textContent = `[${prov}] BOVA11 a ${formatarPreco('BOVA11.SA', bova.preco_atual)} (${formatarPctFracao(bova.variacao_dia_pct)})`;
+          let regra = `Z-Score 20 pregões em ${formatarZ(bova.zscore_20p)}.`;
+          if (valorNumerico(bova.zscore_20p) && valorNumerico(bova.atr_14p) && bova.zscore_20p <= -1.8) {
+            const stop = bova.preco_atual - (1.5 * bova.atr_14p);
+            const alvo = bova.preco_atual + (3 * bova.atr_14p);
+            regra += ` Regra de reversão à média: stop 1,5×ATR em R$ ${stop.toFixed(2)} e alvo em R$ ${alvo.toFixed(2)}.`;
+          } else if (valorNumerico(bova.zscore_20p)) {
+            regra += ' Z acima de -1,8, fora do gatilho da regra de reversão à média.';
+          }
+          const atr = valorNumerico(bova.atr_14p) ? ` ATR(14) R$ ${bova.atr_14p.toFixed(2)}.` : '';
+          const ref = bova.tempo_referencia ? ` Referência: ${formatarReferencia(bova.tempo_referencia)} (${bova.fonte || 'fonte'}).` : '';
+          const stale = bova.dados_stale ? ` ${bova.aviso || 'Cotação desatualizada.'}` : '';
+          elB1.textContent = `BOVA11 ${formatarPreco('BOVA11.SA', bova.preco_atual)}, variação ${formatarPctFracao(bova.variacao_dia_pct)}. ${regra}${atr}${ref}${stale}`;
+        }
+      }
+
+      const elT2 = document.getElementById('title-acc-2');
+      const elB2 = document.getElementById('body-acc-2');
+      if (elT2 && elB2) {
+        if (!cotacaoUtil(usd)) {
+          elT2.textContent = `[${prov}] Dólar comercial: cotação indisponível`;
+          elB2.textContent = (usd && usd.aviso) || 'A fonte não devolveu histórico suficiente para USDBRL.';
+        } else {
+          elT2.textContent = `[${prov}] Dólar a ${formatarPreco('USDBRL=X', usd.preco_atual)} (Z ${formatarZ(usd.zscore_20p)})`;
+          const ref = usd.tempo_referencia ? ` Referência: ${formatarReferencia(usd.tempo_referencia)} (${usd.fonte || 'fonte'}).` : '';
+          const stale = usd.dados_stale ? ` ${usd.aviso || 'Cotação desatualizada.'}` : '';
+          elB2.textContent = `USDBRL ${formatarPreco('USDBRL=X', usd.preco_atual)}, variação ${formatarPctFracao(usd.variacao_dia_pct)}, Z-Score ${formatarZ(usd.zscore_20p)}. Trava de risco individual de 2,0% (R$ 2,00) via Quarter-Kelly.${ref}${stale}`;
+        }
+      }
+
+      const elT3 = document.getElementById('title-acc-3');
+      const elB3 = document.getElementById('body-acc-3');
+      if (elT3 && elB3) {
+        if (!cotacaoUtil(vix)) {
+          elT3.textContent = `[${prov}] VIX: cotação indisponível`;
+          elB3.textContent = (vix && vix.aviso) || 'A fonte não devolveu histórico suficiente para o VIX.';
+        } else {
+          elT3.textContent = `[${prov}] VIX em ${formatarPreco('^VIX', vix.preco_atual)} (${formatarPctFracao(vix.variacao_dia_pct)})`;
+          const goldTxt = cotacaoUtil(gold) ? `GOLD11 ${formatarPreco('GOLD11.SA', gold.preco_atual)} (${formatarPctFracao(gold.variacao_dia_pct)})` : 'GOLD11 indisponível';
+          const ivvbTxt = cotacaoUtil(ivvb) ? `IVVB11 ${formatarPreco('IVVB11.SA', ivvb.preco_atual)} (${formatarPctFracao(ivvb.variacao_dia_pct)})` : 'IVVB11 indisponível';
+          const ref = vix.tempo_referencia ? ` Referência do VIX: ${formatarReferencia(vix.tempo_referencia)} (${vix.fonte || 'fonte'}).` : '';
+          const stale = vix.dados_stale ? ` ${vix.aviso || 'Cotação desatualizada.'}` : '';
+          elB3.textContent = `VIX ${formatarPreco('^VIX', vix.preco_atual)} (${formatarPctFracao(vix.variacao_dia_pct)}), Z-Score ${formatarZ(vix.zscore_20p)}. ${goldTxt}. ${ivvbTxt}.${ref}${stale}`;
+        }
+      }
     }
 
     // ================= RENDERIZAR CARDS SUPERIORES =================
@@ -863,14 +984,35 @@
 
         if (!matchCategoria || !matchBusca) return;
 
+        if (!cotacaoUtil(item)) {
+          html += `
+            <div class="bg-[#1e1f20] border border-amber-500/40 rounded-2xl p-4 flex flex-col justify-between min-h-[148px]">
+              <div>
+                <div class="flex items-center justify-between text-xs text-[#9aa0a6] mb-1">
+                  <span class="font-medium truncate max-w-[120px]">${escaparHtml(item.nome || ticker)}</span>
+                  <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-[#131314] text-[#9aa0a6]">${escaparHtml(ticker.replace('.SA', ''))}</span>
+                </div>
+                <div class="text-lg font-bold text-amber-200">Indisponível</div>
+                <p class="text-[10px] text-amber-100/80 mt-2 leading-relaxed">${escaparHtml(item.aviso || 'A fonte de mercado não respondeu.')}</p>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
         const isPositive = item.variacao_dia_pct >= 0;
         const sinal = isPositive ? '+' : '';
         const corTexto = isPositive ? 'text-[#81c995]' : 'text-[#f28b82]';
         const iconeSeta = isPositive ? '▲' : '▼';
-        const varPctFormatada = `${sinal}${(item.variacao_dia_pct * 100).toFixed(2)}%`;
-        const varNominalFormatada = item.variacao_nominal !== undefined
-          ? `(${sinal}${item.variacao_nominal.toFixed(2)})`
+        const varPctFormatada = formatarPctFracao(item.variacao_dia_pct);
+        const casasValor = ticker === 'USDBRL=X' ? 4 : 2;
+        const varNominalFormatada = valorNumerico(item.variacao_nominal)
+          ? `(${sinal}${item.variacao_nominal.toFixed(casasValor)})`
           : '';
+        const seloStale = item.dados_stale
+          ? '<span class="ml-1 text-[10px] font-semibold text-amber-300">desatualizado</span>'
+          : '';
+        const referencia = formatarReferencia(item.tempo_referencia);
 
         // Detecção de flash em tempo real
         const precoAntigo = precosAnteriores[ticker];
@@ -886,15 +1028,17 @@
           <div class="bg-[#1e1f20] hover:bg-[#282a2d] border border-[#303338] hover:border-[#44474c] rounded-2xl p-4 transition duration-200 flex flex-col justify-between ${flashClass}">
             <div>
               <div class="flex items-center justify-between text-xs text-[#9aa0a6] mb-1">
-                <span class="font-medium truncate max-w-[120px]">${item.nome || ticker}</span>
-                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-[#131314] text-[#9aa0a6]">${ticker.replace('.SA', '')}</span>
+                <span class="font-medium truncate max-w-[120px]">${escaparHtml(item.nome || ticker)}</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-[#131314] text-[#9aa0a6]">${escaparHtml(ticker.replace('.SA', ''))}</span>
               </div>
               <div class="text-xl font-bold mono text-white tracking-tight">${formatarPreco(ticker, item.preco_atual)}</div>
               <div class="flex items-center gap-1.5 text-xs font-semibold ${corTexto} mt-0.5 mono">
                 <span>${varNominalFormatada}</span>
                 <span>${varPctFormatada}</span>
                 <span class="text-xs">${iconeSeta}</span>
+                ${seloStale}
               </div>
+              <div class="text-[10px] text-[#5f6368] mono mt-1">${referencia ? `ref ${escaparHtml(referencia)}` : ''}${item.fonte ? ` · ${escaparHtml(item.fonte)}` : ''}</div>
             </div>
 
             <!-- Área do Sparkline Vector SVG -->
@@ -919,19 +1063,32 @@
       let html = '';
       ativos.forEach(ticker => {
         const item = mercado[ticker];
+        if (!item || !cotacaoUtil(item)) {
+          html += `
+            <div class="flex items-center justify-between py-2 px-2 rounded-xl">
+              <div class="flex-1 min-w-0 pr-2">
+                <div class="font-bold text-xs text-white truncate">${escaparHtml(ticker.replace('.SA', ''))}</div>
+                <div class="text-[10px] text-amber-200 truncate">${escaparHtml((item && item.aviso) || 'Cotação indisponível')}</div>
+              </div>
+              <div class="text-[10px] font-semibold text-amber-200">indisponível</div>
+            </div>
+          `;
+          return;
+        }
         const isPositive = item.variacao_dia_pct >= 0;
         const sinal = isPositive ? '+' : '';
         const bgPill = isPositive ? 'bg-[#0f5132]/60 text-[#81c995] border-[#81c995]/30' : 'bg-[#5c1d1d]/60 text-[#f28b82] border-[#f28b82]/30';
         const iconeSeta = isPositive ? '▲' : '▼';
-        const varPct = `${sinal}${(item.variacao_dia_pct * 100).toFixed(2)}%`;
+        const varPct = formatarPctFracao(item.variacao_dia_pct);
         const miniSparkline = gerarMiniSparklineSVG(item.sparkline, item.variacao_dia_pct);
+        const zTxt = valorNumerico(item.zscore_20p) ? item.zscore_20p.toFixed(2) : '—';
 
         html += `
           <div class="flex items-center justify-between py-2 px-2 hover:bg-[#282a2d] rounded-xl transition cursor-pointer">
             <div class="flex-1 min-w-0 pr-2">
               <div class="font-bold text-xs text-white truncate">${ticker.replace('.SA', '')}</div>
               <div class="text-[10px] text-[#9aa0a6] truncate">${item.nome || item.categoria}</div>
-              <div class="text-[9px] text-[#5f6368] mono">Z: ${item.zscore_20p ? item.zscore_20p.toFixed(2) : '0.00'}</div>
+              <div class="text-[9px] text-[#5f6368] mono">Z: ${zTxt}${item.dados_stale ? ' · desatualizado' : ''}</div>
             </div>
 
             <div class="w-16 h-6 px-1 flex items-center">
@@ -1017,7 +1174,7 @@
                 </button>
               </div>
               <p class="text-xs text-[#9aa0a6] leading-relaxed">
-                Nenhuma anomalia crítica (|Z| &ge; 1.8) no exato instante. Os agentes continuam processando cotações em tempo real e calculando bandas de volatilidade ATR.
+                Nenhuma proposta pendente. Uma nova análise lê as cotações reais da cesta e só sugere operação quando a regra quantitativa dispara.
               </p>
             </div>
           `;
@@ -1117,33 +1274,10 @@
 
           const labelRegime = document.getElementById('label-regime-macro');
           if (labelRegime) {
-            labelRegime.innerText = `Regime: ${s.regime_macro || 'Reflação / Cautela Cambial'}`;
+            labelRegime.innerText = `Regime: ${s.regime_macro || 'Aguardando cotações'}`;
           }
 
-          // Atualização Dinâmica dos 4 Accordions com a assinatura da IA ativa
-          const elT1 = document.getElementById('title-acc-1');
-          if (elT1) elT1.innerText = `[${provedorAtivoGlobal}] Ações da B3 em sobrevenda técnica: Oportunidade de reversão à média`;
-          const elB1 = document.getElementById('body-acc-1');
-          if (elB1 && dadosMercadoCache['BOVA11.SA']) {
-            const bova = dadosMercadoCache['BOVA11.SA'];
-            elB1.innerHTML = `Análise gerada em tempo real por <b>${provedorAtivoGlobal}</b> (${modeloAtivoGlobal}): O índice <b>BOVA11</b> opera cotado a <b>R$ ${bova.preco_atual.toFixed(2)}</b> com estiramento Z-Score de <b>${bova.zscore_20p ? bova.zscore_20p.toFixed(2) : '-1.89'}</b>. O modelo quantitativo identifica assimetria favorável para compra, dimensionando Stop Loss a 1.5× ATR (R$ 154,06) e Alvo a 2.0× da amplitude (R$ 188,07).`;
-          }
-
-          const elT2 = document.getElementById('title-acc-2');
-          if (elT2) elT2.innerText = `[${provedorAtivoGlobal}] Regime Macroeconômico: Cautela Cambial e Dólar Comercial`;
-          const elB2 = document.getElementById('body-acc-2');
-          if (elB2 && dadosMercadoCache['USDBRL=X']) {
-            const usd = dadosMercadoCache['USDBRL=X'];
-            elB2.innerHTML = `Diagnóstico macro por <b>${provedorAtivoGlobal}</b>: O Dólar Comercial (<b>USDBRL</b>) opera cotado a <b>R$ ${usd.preco_atual.toFixed(2)}</b> (Z-Score: ${usd.zscore_20p ? usd.zscore_20p.toFixed(2) : '+1.75'}). O Sistema 2 recomenda manter 100% de capital sem alavancagem, respeitando a trava de risco individual de 2,0% (R$ 2,00) via critério Quarter-Kelly fracionário.`;
-          }
-
-          const elT3 = document.getElementById('title-acc-3');
-          if (elT3) elT3.innerText = `[${provedorAtivoGlobal}] Índice VIX global em alta: Sentimento de cautela e aversão ao risco`;
-          const elB3 = document.getElementById('body-acc-3');
-          if (elB3 && dadosMercadoCache['^VIX']) {
-            const vix = dadosMercadoCache['^VIX'];
-            elB3.innerHTML = `Monitoramento global por <b>${provedorAtivoGlobal}</b>: O índice de volatilidade <b>^VIX</b> opera em <b>${vix.preco_atual.toFixed(2)}</b> (+12,91%), sinalizando aumento de volatilidade nos mercados desenvolvidos. O portfólio mantém hedge natural através da exposição em <b>GOLD11</b> (Ouro) e <b>IVVB11</b> (S&P 500 cotado em reais).`;
-          }
+          atualizarResumoMercado();
 
           const elT4 = document.getElementById('title-acc-4');
           if (elT4) elT4.innerText = `[Auditoria & BTG Cloud] Auditoria dos 4 Tempos e Conexão em Nuvem B3`;
@@ -1238,8 +1372,10 @@
         const res = await fetch('/api/market');
         if (res.ok) {
           dadosMercadoCache = await res.json();
+          atualizarAvisoMercado(dadosMercadoCache);
           renderizarCardsSuperiores(dadosMercadoCache);
           renderizarWatchlistLateral(dadosMercadoCache);
+          atualizarResumoMercado();
         }
         await carregarPropostas();
         await carregarStatusEOrdens();
@@ -1290,6 +1426,9 @@
       try {
         const res = await fetch('/api/cycle/run', { method: 'POST' });
         const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || 'Ciclo interrompido: cotações reais indisponíveis.');
+        }
         await atualizarTudo();
       } catch (e) {
         alert('Erro ao executar ciclo.');

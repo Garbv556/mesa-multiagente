@@ -75,17 +75,32 @@ class CoordenadorCiclo:
         propostas: List[PropostaAnalista] = []
         agora = datetime.now(timezone.utc).isoformat()
 
-        usd = snapshot.get("USDBRL=X", {})
-        z_usd = usd.get("zscore_20p", 0.0)
-        regime = "Reflação / Cautela Cambial" if z_usd > 1.5 else "Goldilocks / Oportunidade"
+        usd = snapshot.get("USDBRL=X") or {}
+        z_usd = usd.get("zscore_20p")
+        if usd.get("disponivel") is False or z_usd is None:
+            regime = "Indeterminado"
+            texto_dolar = "Dólar sem cotação real."
+        else:
+            z_usd = float(z_usd)
+            regime = "Reflação / Cautela Cambial" if z_usd > 1.5 else "Goldilocks / Oportunidade"
+            texto_dolar = f"Dólar Z={z_usd:.2f}."
 
         for ticker, metricas in snapshot.items():
             if ticker in ["USDBRL=X", "^VIX"]:
                 continue
+            if not isinstance(metricas, dict) or metricas.get("disponivel") is False:
+                continue
 
-            zscore = metricas.get("zscore_20p", 0.0)
-            preco = metricas.get("preco_atual", 0.0)
-            atr = metricas.get("atr_14p", 1.0)
+            zscore = metricas.get("zscore_20p")
+            preco = metricas.get("preco_atual")
+            atr = metricas.get("atr_14p")
+            if zscore is None or preco is None or atr is None:
+                continue
+            zscore = float(zscore)
+            preco = float(preco)
+            atr = float(atr)
+            if preco <= 0 or atr <= 0:
+                continue
 
             # Setup Retorno à Média (Mean Reversion)
             if zscore <= -1.8:
@@ -108,7 +123,9 @@ class CoordenadorCiclo:
 
         return DiagnosticoMercado(
             regime_macro_vigente=regime,
-            resumo_cenario=f"Monitoramento determinístico de {len(snapshot)} ativos. Dólar Z={z_usd:.2f}.",
+            resumo_cenario=(
+                f"Monitoramento determinístico de {len(snapshot)} ativos com cotações reais. {texto_dolar}"
+            ),
             propostas=propostas,
             timestamp_geracao=agora,
         )

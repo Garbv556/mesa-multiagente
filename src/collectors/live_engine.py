@@ -1,177 +1,313 @@
 """
-Engine de Mercado em Tempo Real (Live Market Simulator & Ingestor).
-Garante que a Mesa de Operações tenha fluxo de cotações dinâmico em tempo real (Ao Vivo),
-com micro-oscilações realistas de mercado (Order Book Ticks, Bid/Ask e Volume),
-atualização contínua de Sparklines, recálculo de Z-Score e eventos em streaming.
+Cache das cotações reais servidas em /api/market.
+
+Este módulo não gera micro-oscilação, não sorteia preço e não mantém um
+pregão sintético. Ele só repete a última coleta real dentro do TTL e, se a
+fonte falhar, reapresenta essa coleta marcada como desatualizada até expirar.
+Sem coleta real dentro da validade, o ativo volta indisponível.
 """
 
+from dataclasses import asdict
 from datetime import datetime, timezone
 import json
+import math
+import os
 from pathlib import Path
-import random
+import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
+
+from src.collectors.market_data import METADADOS_ATIVOS, TICKERS_CESTA, ColetorMercado
+from src.collectors.market_sources import FONTES_REAIS
+
+
+def _parse_iso(valor: Any) -> Optional[datetime]:
+    if not isinstance(valor, str) or not valor:
+        return None
+    try:
+        instante = datetime.fromisoformat(valor.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if instante.tzinfo is None:
+        instante = instante.replace(tzinfo=timezone.utc)
+    return instante.astimezone(timezone.utc)
+
+
+def _idade_segundos(valor: Any) -> Optional[float]:
+    instante = _parse_iso(valor)
+    if instante is None:
+        return None
+    return (datetime.now(timezone.utc) - instante).total_seconds()
 
 
 class LiveMarketEngine:
-    def __init__(self, caminho_snapshot: str = "data/snapshots/ultimo_mercado.json"):
+    def __init__(
+        self,
+        coletor: Optional[ColetorMercado] = None,
+        caminho_snapshot: str = "data/snapshots/ultimo_mercado.json",
+        ttl_segundos: Optional[int] = None,
+        validade_stale_segundos: Optional[int] = None,
+    ):
+        self.coletor = coletor or ColetorMercado()
         self.caminho_snapshot = Path(caminho_snapshot)
-        self.dados_mercado: Dict[str, Dict[str, Any]] = {}
-        self.ultimo_tick_time = time.time()
-        self.tick_count = 0
-        self.carregar_base()
+        self.tickers = list(getattr(self.coletor, "tickers", None) or TICKERS_CESTA)
+        self.ttl = self._ler_inteiro(ttl_segundos, "MARKET_CACHE_TTL_SECONDS", 60)
+        self.validade_stale = self._ler_inteiro(
+            validade_stale_segundos, "MARKET_STALE_MAX_SECONDS", 129600
+        )
+        self.resposta: Dict[str, Dict[str, Any]] = {}
+        self.metricas: Dict[str, Any] = {}
+        self.dados_mercado = self.resposta
+        self.evento_pendente: Optional[Dict[str, str]] = None
+        self._lock = threading.Lock()
+        self._em_coleta = False
+        self._ultima_tentativa = 0.0
+        self._carregar_cache_real()
+        self.dados_mercado = self.resposta
 
-    def carregar_base(self) -> None:
+    @staticmethod
+    def _ler_inteiro(explicito: Optional[int], ambiente: str, padrao: int) -> int:
+        if explicito is not None:
+            return max(0, int(explicito))
+        try:
+            return max(0, int(os.getenv(ambiente, str(padrao))))
+        except ValueError:
+            return padrao
+
+    def _dentro_da_validade(self, item: Dict[str, Any]) -> bool:
+        idade = _idade_segundos(item.get("tempo_coleta"))
+        if idade is None:
+            return False
+        return -300 <= idade <= self.validade_stale
+
+    def _item_de_fonte_real(self, item: Any) -> bool:
+        if not isinstance(item, dict):
+            return False
+        if item.get("fonte") not in FONTES_REAIS:
+            return False
+        preco = item.get("preco_atual")
+        if isinstance(preco, bool) or not isinstance(preco, (int, float)):
+            return False
+        if not math.isfinite(float(preco)) or float(preco) <= 0:
+            return False
+        return self._dentro_da_validade(item)
+
+    def _carregar_cache_real(self) -> None:
+        if not self.caminho_snapshot.exists():
+            return
+        try:
+            with open(self.caminho_snapshot, "r", encoding="utf-8") as arquivo:
+                bruto = json.load(arquivo)
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"[Aviso] Snapshot de mercado ignorado: {exc}")
+            return
+        if not isinstance(bruto, dict):
+            return
+        for ticker in self.tickers:
+            item = bruto.get(ticker)
+            if not self._item_de_fonte_real(item):
+                continue
+            restaurado = dict(item)
+            restaurado["disponivel"] = True
+            restaurado["dados_stale"] = True
+            restaurado["aviso"] = (
+                "Última coleta real em disco. O preço não foi atualizado nesta execução."
+            )
+            self.resposta[ticker] = restaurado
+
+    def _indisponivel(self, ticker: str, aviso: str) -> Dict[str, Any]:
+        meta = METADADOS_ATIVOS.get(ticker, {"nome": ticker, "categoria": "B3"})
+        return {
+            "ticker": ticker,
+            "preco_atual": None,
+            "preco_fechamento_anterior": None,
+            "variacao_dia_pct": None,
+            "zscore_20p": None,
+            "atr_14p": None,
+            "volatilidade_20p": None,
+            "tempo_referencia": None,
+            "tempo_evento": None,
+            "tempo_publicacao": None,
+            "tempo_coleta": datetime.now(timezone.utc).isoformat(),
+            "nome": meta["nome"],
+            "categoria": meta["categoria"],
+            "variacao_nominal": None,
+            "sparkline": [],
+            "fonte": None,
+            "disponivel": False,
+            "dados_stale": False,
+            "aviso": aviso,
+        }
+
+    def _cache_fresco(self) -> bool:
+        if self.ttl <= 0 or self._ultima_tentativa <= 0 or not self.resposta:
+            return False
+        return (time.monotonic() - self._ultima_tentativa) < self.ttl
+
+    def _para_dict(self, metrica: Any) -> Dict[str, Any]:
+        if hasattr(metrica, "__dataclass_fields__"):
+            return asdict(metrica)
+        return dict(metrica)
+
+    def _aplicar_coleta(self, cesta: Dict[str, Any], erro_geral: Optional[str]) -> None:
+        erros = getattr(self.coletor, "erros", {}) or {}
+        antes = {ticker: dict(item) for ticker, item in self.resposta.items()}
+        novos: Dict[str, Dict[str, Any]] = {}
+        metricas: Dict[str, Any] = {}
+
+        for ticker in self.tickers:
+            metrica = cesta.get(ticker) if isinstance(cesta, dict) else None
+            if metrica is not None:
+                item = self._para_dict(metrica)
+                if item.get("fonte") in FONTES_REAIS and self._preco_positivo(item.get("preco_atual")):
+                    item["disponivel"] = True
+                    item["dados_stale"] = False
+                    item["aviso"] = None
+                    novos[ticker] = item
+                    metricas[ticker] = metrica
+                    continue
+
+            anterior = antes.get(ticker)
+            if anterior and self._item_de_fonte_real(anterior):
+                mantido = dict(anterior)
+                mantido["disponivel"] = True
+                mantido["dados_stale"] = True
+                mantido["aviso"] = (
+                    "Cotação desatualizada: a fonte real não respondeu. "
+                    "O preço exibido é o da última coleta bem-sucedida."
+                )
+                novos[ticker] = mantido
+                continue
+
+            detalhe = erros.get(ticker) or erro_geral or "nenhuma fonte real respondeu com histórico suficiente"
+            aviso = f"Cotação indisponível. {detalhe}"
+            novos[ticker] = self._indisponivel(ticker, aviso[:280])
+
+        self.resposta = novos
+        self.dados_mercado = self.resposta
+        self.metricas = metricas
+        self._definir_evento(antes, novos)
+        self._salvar_cache_real()
+        resumo = ", ".join(
+            (
+                f"{ticker}={novos[ticker].get('preco_atual')}"
+                f"[{novos[ticker].get('fonte') or 'indisponível'}"
+                f"{'/stale' if novos[ticker].get('dados_stale') else ''}]"
+            )
+            for ticker in self.tickers
+        )
+        print(f"[Mercado] {resumo}")
+
+    @staticmethod
+    def _preco_positivo(preco: Any) -> bool:
+        if isinstance(preco, bool) or not isinstance(preco, (int, float)):
+            return False
+        return math.isfinite(float(preco)) and float(preco) > 0
+
+    def _definir_evento(self, antes: Dict[str, Dict[str, Any]], novos: Dict[str, Dict[str, Any]]) -> None:
+        def assinatura(mapa: Dict[str, Dict[str, Any]]):
+            return tuple(
+                (
+                    ticker,
+                    bool((mapa.get(ticker) or {}).get("disponivel")),
+                    bool((mapa.get(ticker) or {}).get("dados_stale")),
+                )
+                for ticker in self.tickers
+            )
+
+        if assinatura(antes) == assinatura(novos):
+            return
+
+        indisponiveis = [ticker for ticker in self.tickers if not novos[ticker].get("disponivel")]
+        desatualizados = [ticker for ticker in self.tickers if novos[ticker].get("dados_stale")]
+        if indisponiveis or desatualizados:
+            partes = []
+            if indisponiveis:
+                partes.append("indisponível: " + ", ".join(indisponiveis))
+            if desatualizados:
+                partes.append("desatualizado: " + ", ".join(desatualizados))
+            self.evento_pendente = {
+                "tipo": "MERCADO",
+                "tag": "FONTE",
+                "cor": "amber",
+                "titulo": "Coleta real incompleta",
+                "mensagem": " ; ".join(partes) + ". Nenhum preço foi completado com simulação.",
+            }
+            return
+
+        fontes = sorted({str(novos[ticker].get("fonte")) for ticker in self.tickers if novos[ticker].get("fonte")})
+        referencias = ", ".join(
+            f"{ticker} {novos[ticker].get('preco_atual')} @ {novos[ticker].get('tempo_referencia')}"
+            for ticker in self.tickers
+        )
+        self.evento_pendente = {
+            "tipo": "MERCADO",
+            "tag": "COTAÇÃO REAL",
+            "cor": "emerald",
+            "titulo": "Cotações lidas da fonte de mercado",
+            "mensagem": f"Fontes: {', '.join(fontes)}. {referencias}",
+        }
+
+    def _salvar_cache_real(self) -> None:
+        existente: Dict[str, Any] = {}
         if self.caminho_snapshot.exists():
             try:
-                with open(self.caminho_snapshot, "r", encoding="utf-8") as f:
-                    self.dados_mercado = json.load(f)
-            except Exception as e:
-                print(f"[Aviso] Erro ao ler snapshot base: {e}")
-        
-        # Se vazio ou não existir, cria estrutura padrão
-        if not self.dados_mercado:
-            self.dados_mercado = {
-                "BOVA11.SA": {
-                    "ticker": "BOVA11.SA",
-                    "preco_atual": 165.40,
-                    "preco_fechamento_anterior": 166.51,
-                    "variacao_dia_pct": -0.00666,
-                    "zscore_20p": -1.89,
-                    "atr_14p": 7.56,
-                    "volatilidade_20p": 0.039,
-                    "tempo_referencia": "2026-10-30",
-                    "tempo_evento": "2026-10-30T17:00:00Z",
-                    "tempo_publicacao": "2026-10-30T18:00:00Z",
-                    "tempo_coleta": datetime.now(timezone.utc).isoformat(),
-                    "nome": "iShares Ibovespa",
-                    "categoria": "B3",
-                    "variacao_nominal": -1.11,
-                    "sparkline": [205.5, 203.6, 201.4, 202.4, 205.0, 203.5, 201.7, 172.4, 173.0, 168.5, 166.5, 165.4],
-                },
-                "IVVB11.SA": {
-                    "ticker": "IVVB11.SA",
-                    "preco_atual": 466.50,
-                    "preco_fechamento_anterior": 468.00,
-                    "variacao_dia_pct": -0.0032,
-                    "zscore_20p": 1.52,
-                    "atr_14p": 9.48,
-                    "volatilidade_20p": 0.023,
-                    "tempo_referencia": "2026-10-30",
-                    "tempo_evento": "2026-10-30T17:00:00Z",
-                    "tempo_publicacao": "2026-10-30T18:00:00Z",
-                    "tempo_coleta": datetime.now(timezone.utc).isoformat(),
-                    "nome": "iShares S&P 500",
-                    "categoria": "Global",
-                    "variacao_nominal": -1.50,
-                    "sparkline": [458.0, 460.5, 463.2, 465.0, 464.1, 467.0, 469.2, 468.0, 466.5],
-                },
-                "GOLD11.SA": {
-                    "ticker": "GOLD11.SA",
-                    "preco_atual": 21.89,
-                    "preco_fechamento_anterior": 22.50,
-                    "variacao_dia_pct": -0.0271,
-                    "zscore_20p": 0.23,
-                    "atr_14p": 0.51,
-                    "volatilidade_20p": 0.018,
-                    "tempo_referencia": "2026-10-30",
-                    "tempo_evento": "2026-10-30T17:00:00Z",
-                    "tempo_publicacao": "2026-10-30T18:00:00Z",
-                    "tempo_coleta": datetime.now(timezone.utc).isoformat(),
-                    "nome": "Trend Ouro B3",
-                    "categoria": "Hedge",
-                    "variacao_nominal": -0.61,
-                    "sparkline": [21.5, 21.7, 22.0, 22.3, 22.5, 22.4, 22.2, 22.5, 21.89],
-                },
-                "USDBRL=X": {
-                    "ticker": "USDBRL=X",
-                    "preco_atual": 5.382,
-                    "preco_fechamento_anterior": 5.385,
-                    "variacao_dia_pct": -0.0006,
-                    "zscore_20p": 1.75,
-                    "atr_14p": 0.11,
-                    "volatilidade_20p": 0.012,
-                    "tempo_referencia": "2026-10-30",
-                    "tempo_evento": "2026-10-30T17:00:00Z",
-                    "tempo_publicacao": "2026-10-30T18:00:00Z",
-                    "tempo_coleta": datetime.now(timezone.utc).isoformat(),
-                    "nome": "Dólar Comercial",
-                    "categoria": "Moeda",
-                    "variacao_nominal": -0.003,
-                    "sparkline": [5.31, 5.33, 5.35, 5.34, 5.36, 5.39, 5.41, 5.38, 5.382],
-                },
-                "^VIX": {
-                    "ticker": "^VIX",
-                    "preco_atual": 19.42,
-                    "preco_fechamento_anterior": 17.20,
-                    "variacao_dia_pct": 0.1291,
-                    "zscore_20p": 1.45,
-                    "atr_14p": 2.48,
-                    "volatilidade_20p": 0.078,
-                    "tempo_referencia": "2026-10-30",
-                    "tempo_evento": "2026-10-30T17:00:00Z",
-                    "tempo_publicacao": "2026-10-30T18:00:00Z",
-                    "tempo_coleta": datetime.now(timezone.utc).isoformat(),
-                    "nome": "CBOE Volatilidade",
-                    "categoria": "Macro",
-                    "variacao_nominal": 2.22,
-                    "sparkline": [15.2, 16.5, 17.3, 16.9, 17.2, 18.4, 17.5, 16.9, 17.2, 19.42],
-                },
-            }
+                with open(self.caminho_snapshot, "r", encoding="utf-8") as arquivo:
+                    bruto = json.load(arquivo)
+                if isinstance(bruto, dict):
+                    existente = {
+                        ticker: item
+                        for ticker, item in bruto.items()
+                        if isinstance(item, dict) and item.get("fonte") in FONTES_REAIS
+                    }
+            except (OSError, json.JSONDecodeError):
+                existente = {}
 
-    def gerar_tick_ao_vivo(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Produz micro-oscilações em tempo real de forma estocástica e realista.
-        Mantém os preços ancorados nas cotações reais, simulando a dinâmica contínua do mercado.
-        """
-        self.tick_count += 1
-        agora_iso = datetime.now(timezone.utc).isoformat()
+        for ticker, item in self.resposta.items():
+            if item.get("disponivel") and not item.get("dados_stale") and item.get("fonte") in FONTES_REAIS:
+                existente[ticker] = item
+        if not existente:
+            return
+        try:
+            self.caminho_snapshot.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.caminho_snapshot, "w", encoding="utf-8") as arquivo:
+                json.dump(existente, arquivo, indent=2, ensure_ascii=False)
+        except OSError as exc:
+            print(f"[Aviso] Não foi possível gravar o cache de mercado: {exc}")
 
-        # Seleciona de 1 a 3 ativos para oscilar neste tick
-        tickers = list(self.dados_mercado.keys())
-        ativos_para_mover = random.sample(tickers, k=random.randint(1, 3))
+    def atualizar(self, forcar: bool = False) -> Dict[str, Dict[str, Any]]:
+        with self._lock:
+            if not forcar and self._cache_fresco():
+                return json.loads(json.dumps(self.resposta))
+            if self._em_coleta:
+                if self.resposta:
+                    return json.loads(json.dumps(self.resposta))
+                return {
+                    ticker: self._indisponivel(ticker, "Coleta em andamento.")
+                    for ticker in self.tickers
+                }
+            self._em_coleta = True
 
-        for ticker in ativos_para_mover:
-            item = self.dados_mercado[ticker]
-            fechamento_ant = item.get("preco_fechamento_anterior", item.get("preco_atual", 100.0))
-            preco_atual = item.get("preco_atual", 100.0)
+        erro_geral = None
+        try:
+            cesta = self.coletor.coletar_cesta_completa() or {}
+        except Exception as exc:  # noqa: BLE001 - a API precisa responder mesmo se a fonte cair
+            cesta = {}
+            erro_geral = f"{type(exc).__name__}: {exc}"
 
-            # Amplitude de micro-tick proporcional ao ativo (0.02% a 0.08%)
-            if ticker == "USDBRL=X":
-                delta = random.choice([-0.0025, -0.0015, -0.0005, 0.0005, 0.0015, 0.0025])
-                novo_preco = round(max(5.10, min(5.70, preco_atual + delta)), 4)
-            elif ticker == "GOLD11.SA":
-                delta = random.choice([-0.04, -0.02, -0.01, 0.01, 0.02, 0.04])
-                novo_preco = round(max(20.0, min(25.0, preco_atual + delta)), 2)
-            elif ticker == "^VIX":
-                delta = random.choice([-0.15, -0.08, -0.02, 0.02, 0.08, 0.15])
-                novo_preco = round(max(14.0, min(26.0, preco_atual + delta)), 2)
-            elif ticker == "BOVA11.SA":
-                delta = random.choice([-0.25, -0.15, -0.05, 0.05, 0.15, 0.25])
-                novo_preco = round(max(158.0, min(172.0, preco_atual + delta)), 2)
-            else:  # IVVB11.SA
-                delta = random.choice([-0.60, -0.30, -0.10, 0.10, 0.30, 0.60])
-                novo_preco = round(max(450.0, min(485.0, preco_atual + delta)), 2)
-
-            item["preco_atual"] = novo_preco
-            item["variacao_nominal"] = round(novo_preco - fechamento_ant, 4 if ticker == "USDBRL=X" else 2)
-            item["variacao_dia_pct"] = (novo_preco / fechamento_ant) - 1.0
-            item["tempo_coleta"] = agora_iso
-
-            # Atualiza o sparkline mantendo os últimos 15 pontos
-            sparkline = item.get("sparkline") or []
-            if len(sparkline) >= 15:
-                # Atualiza o último ponto ou adiciona com jitter suave
-                if self.tick_count % 3 == 0:
-                    sparkline.pop(0)
-                    sparkline.append(novo_preco)
-                else:
-                    sparkline[-1] = novo_preco
-            else:
-                sparkline.append(novo_preco)
-            item["sparkline"] = sparkline
-
-        return self.dados_mercado
+        with self._lock:
+            try:
+                self._aplicar_coleta(cesta, erro_geral)
+                self._ultima_tentativa = time.monotonic()
+                return json.loads(json.dumps(self.resposta))
+            finally:
+                self._em_coleta = False
 
     def obter_cotacoes(self) -> Dict[str, Dict[str, Any]]:
-        return self.gerar_tick_ao_vivo()
+        return self.atualizar(forcar=False)
+
+    def consumir_evento(self) -> Optional[Dict[str, str]]:
+        with self._lock:
+            evento = self.evento_pendente
+            self.evento_pendente = None
+            return evento

@@ -17,7 +17,6 @@ import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import os
-import random
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -46,72 +45,43 @@ btg = BTGConnector()
 carteira = CarteiraSimulada(saldo_inicial_brl=100.0)
 gate = OrderGate(caminho_config=CONFIG_PATH, carteira=carteira)
 coletor = ColetorMercado()
-live_market = LiveMarketEngine()
+live_market = LiveMarketEngine(coletor=coletor)
 coordenador = CoordenadorCiclo(caminho_config=CONFIG_PATH, llm_client=llm_client)
 coordenador.carteira = carteira
 coordenador.gate = gate
 
-# Estado de propostas pendentes para aprovação humana (iniciado com proposta auditada)
-propostas_pendentes: Dict[str, Dict[str, Any]] = {
-    "prop-bova11-seed": {
-        "proposta_id": "prop-bova11-seed",
-        "ativo": "BOVA11.SA",
-        "tipo": "COMPRA",
-        "preco_atual": 165.40,
-        "preco_stop_loss": 154.06,
-        "preco_take_profit": 188.07,
-        "probabilidade": 0.78,
-        "justificativa": "Estiramento estatístico inferior (Z=-1.89) com volatilidade ATR=R$ 7.56. Assimetria favorável 2.0x.",
-        "vies_macro": "LONG",
-        "revisor_parecer": "APROVADO",
-        "revisor_nota": "Auditoria de dados e relação risco/retorno (2.0x) confirmada com integridade temporal.",
-        "revisor_contrapontos": [],
-        "status": "PENDENTE_APROVACAO_HUMANA",
-    }
-}
+# Propostas só entram depois de um ciclo sobre cotações reais.
+propostas_pendentes: Dict[str, Dict[str, Any]] = {}
 ultimo_diagnostico: Dict[str, Any] = {
-    "regime_macro": "Reflação / Cautela Cambial",
-    "resumo": "Análise determinística da cesta de 5 ativos. Dólar Z=+1.75.",
+    "regime_macro": "Aguardando cotações",
+    "resumo": "O resumo usa as cotações reais da cesta depois da coleta ou de um ciclo de análise.",
     "timestamp": datetime.now(timezone.utc).isoformat(),
 }
 curva_patrimonio: List[float] = [100.0]
 
 feed_eventos: List[Dict[str, Any]] = [
     {
-        "id": "ev-1",
-        "tempo": "17:04:13",
-        "tipo": "AUDITORIA",
-        "tag": "4 TEMPOS",
-        "cor": "emerald",
-        "titulo": "Sincronização dos 4 Tempos",
-        "mensagem": "Latência de ingestão da B3 via Yahoo Finance auditada em 0.12s. Tempos de Referência, Evento, Publicação e Coleta registrados com integridade.",
-    },
-    {
-        "id": "ev-2",
-        "tempo": "17:03:50",
-        "tipo": "SISTEMA_2",
-        "tag": "MACRO",
+        "id": "ev-boot-mercado",
+        "tempo": datetime.now().strftime("%H:%M:%S"),
+        "tipo": "MERCADO",
+        "tag": "COTAÇÃO REAL",
         "cor": "cyan",
-        "titulo": "Diagnóstico do Regime Macroeconômico",
-        "mensagem": "Regime vigente classificado como Reflação / Cautela Cambial. Cesta de 5 ativos monitorada. Dólar Z-Score em +1.75.",
+        "titulo": "Cotações ligadas a fonte de mercado",
+        "mensagem": (
+            "BOVA11, IVVB11, GOLD11, USDBRL e VIX são lidos de OHLC diário "
+            "(Yahoo Finance; yfinance, brapi e CBOE ficam de reserva). "
+            "Z-Score, ATR, volatilidade e sparkline saem desse histórico. "
+            "O horário de referência é o carimbo do negócio na fonte."
+        ),
     },
     {
-        "id": "ev-3",
-        "tempo": "17:02:15",
+        "id": "ev-boot-risco",
+        "tempo": datetime.now().strftime("%H:%M:%S"),
         "tipo": "RISCO",
         "tag": "ORDER GATE",
         "cor": "amber",
-        "titulo": "Trava Diária e Quarter-Kelly Auditados",
-        "mensagem": "Trava diária de 4% (R$ 4,00) ativa e com 100% de folga. Risco individual estritamente limitado a 2,0% (R$ 2,00). Stop Loss a 1.5x ATR.",
-    },
-    {
-        "id": "ev-4",
-        "tempo": "17:00:02",
-        "tipo": "CORRETORA",
-        "tag": "BTG CLOUD",
-        "cor": "blue",
-        "titulo": "Gateway BTG Pactual Nuvem Operacional",
-        "mensagem": "Conector Cloud com o BTG Pactual ativo no servidor Railway. Canal de envio de ordens B3 homologado.",
+        "titulo": "Trava diária e Quarter-Kelly",
+        "mensagem": "Trava diária de 4% (R$ 4,00) ativa. Risco individual limitado a 2,0% (R$ 2,00). Stop Loss da regra de reversão fica a 1,5x ATR da cotação real.",
     },
 ]
 
@@ -331,7 +301,7 @@ async def send_whatsapp_report():
     if not whatsapp.obter_status().ativo:
         raise HTTPException(status_code=400, detail="WhatsApp não configurado.")
 
-    cotacoes = live_market.dados_mercado
+    cotacoes = live_market.obter_cotacoes()
     provedor = llm_client.obter_status().provedor
     sucesso = whatsapp.enviar_relatorio_mercado(
         patrimonio_total=carteira.patrimonio_total,
@@ -374,30 +344,23 @@ async def configure_btg(req: ConfigurarBTGRequest):
 
 @app.get("/api/market")
 async def get_market():
-    # Retorna fluxo de cotações em tempo real dinâmico
     cotacoes = live_market.obter_cotacoes()
 
-    # Atualiza as cotações das posições abertas na carteira em tempo real
     for ticker, item in cotacoes.items():
-        carteira.atualizar_cotacao(ticker, item["preco_atual"])
+        preco = item.get("preco_atual")
+        if item.get("disponivel") and isinstance(preco, (int, float)):
+            carteira.atualizar_cotacao(ticker, preco)
 
-    # A cada 4 chamadas, injeta um evento de auditoria no feed ao vivo
-    if live_market.tick_count % 4 == 0:
-        eventos_possiveis = [
-            ("AUDITORIA", "4 TEMPOS", "emerald", "Auditoria de Latência B3", f"Latência DMA via BTG Cloud medida em {random.randint(11, 24)}ms. Sincronizado."),
-            ("SISTEMA_2", "MACRO", "cyan", "Reavaliação de Volatilidade ATR", f"ATR de BOVA11 recalculado em R$ {cotacoes.get('BOVA11.SA', {}).get('atr_14p', 7.56):.2f}. Bandas ajustadas."),
-            ("RISCO", "ORDER GATE", "amber", "Verificação Quarter-Kelly", "Critério fracionário de risco 2% (R$ 2,00) com 100% de margem disponível."),
-            ("MERCADO", "TICK B3", "blue", "Tick de Fluxo Recebido", f"Cotação em tempo real de {random.choice(list(cotacoes.keys()))} atualizada."),
-        ]
-        ev = random.choice(eventos_possiveis)
+    evento = live_market.consumir_evento()
+    if evento:
         feed_eventos.insert(0, {
             "id": f"ev-{int(datetime.now().timestamp())}",
             "tempo": datetime.now().strftime("%H:%M:%S"),
-            "tipo": ev[0],
-            "tag": ev[1],
-            "cor": ev[2],
-            "titulo": ev[3],
-            "mensagem": ev[4],
+            "tipo": evento["tipo"],
+            "tag": evento["tag"],
+            "cor": evento["cor"],
+            "titulo": evento["titulo"],
+            "mensagem": evento["mensagem"],
         })
         if len(feed_eventos) > 20:
             feed_eventos.pop()
@@ -413,8 +376,14 @@ async def get_proposals():
 @app.post("/api/cycle/run")
 async def run_cycle():
     global ultimo_diagnostico, propostas_pendentes
-    snapshot = coletor.coletar_cesta_completa()
-    coletor.salvar_snapshot()
+    live_market.atualizar(forcar=True)
+    snapshot = dict(live_market.metricas)
+    if not snapshot:
+        raise HTTPException(
+            status_code=503,
+            detail="Cotações reais indisponíveis. Nenhuma proposta foi gerada.",
+        )
+    coletor.salvar_snapshot(cesta=snapshot)
 
     for ticker, metrica in snapshot.items():
         carteira.atualizar_cotacao(ticker, metrica.preco_atual)
@@ -458,29 +427,6 @@ async def run_cycle():
                 telegram.notificar_proposta_trade(dados_proposta)
             if whatsapp.obter_status().ativo:
                 whatsapp.notificar_proposta_whatsapp(dados_proposta)
-
-    if not propostas_pendentes:
-        prov_ativo = llm_client.obter_status().provedor.upper()
-        bova = snapshot.get("BOVA11.SA")
-        preco_bova = bova.preco_atual if bova else 165.40
-        atr_bova = bova.atr_14p if bova else 7.56
-        z_bova = bova.zscore_20p if bova else -1.89
-        prop_id = f"PROP-BOVA11-{int(datetime.now().timestamp())}"
-        propostas_pendentes[prop_id] = {
-            "proposta_id": prop_id,
-            "ativo": "BOVA11.SA",
-            "tipo": "COMPRA",
-            "preco_atual": round(preco_bova, 2),
-            "preco_stop_loss": round(preco_bova - (1.5 * atr_bova), 2),
-            "preco_take_profit": round(preco_bova + (2.0 * atr_bova), 2),
-            "probabilidade": 0.78,
-            "justificativa": f"[{prov_ativo} Analista] Estiramento estatístico (Z={z_bova:.2f}) com ATR=R$ {atr_bova:.2f}. Setup de reversão à média com assimetria 2.0x.",
-            "vies_macro": "LONG",
-            "revisor_parecer": "APROVADO",
-            "revisor_nota": f"[{prov_ativo} Revisor] Auditoria matemática e relação risco/retorno confirmada sob integridade dos 4 Tempos.",
-            "revisor_contrapontos": [],
-            "status": "PENDENTE_APROVACAO_HUMANA",
-        }
 
     feed_eventos.insert(0, {
         "id": f"ev-{int(datetime.now().timestamp())}",
